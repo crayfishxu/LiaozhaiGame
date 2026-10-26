@@ -81,9 +81,16 @@ var panel_vb: VBoxContainer
 var menu_btn: Button
 var target_hint: Label
 var _pause_open: bool = false
+## 当前弹窗种类：intro / reward / pause / lang / win / lose / ""
+## 切换语言要重建整个 UI，靠这个把玩家送回到原来的那一屏
+var _panel_mode: String = ""
+## 战后三选一的候选项要留住，否则切语言重开面板会重新摇一次
+var _reward_picks: Array = []
+var _reward_sides: Array = []
 
 
 func _ready() -> void:
+	I18N.load_saved()
 	_build_theme()
 	_build_ui()
 	start_game()
@@ -102,6 +109,9 @@ func _notification(what: int) -> void:
 func _on_back_requested() -> void:
 	if overlay.visible and _pause_open:
 		_hide_overlay()
+		# 清场后从暂停退出，奖励三选一还没领 —— 把它还回去，否则卡在这一层
+		if game_active and _all_dead():
+			_show_reward(true)
 		return
 	_show_pause()
 
@@ -111,11 +121,7 @@ func _on_back_requested() -> void:
 # ==================================================================
 func _build_theme() -> void:
 	var f := SystemFont.new()
-	f.font_names = PackedStringArray([
-		"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
-		"Noto Sans CJK SC", "Source Han Sans SC",
-		"WenQuanYi Micro Hei", "SimHei", "sans-serif",
-	])
+	f.font_names = I18N.font_names()
 	ui_theme = Theme.new()
 	ui_theme.default_font = f
 	ui_theme.default_font_size = int(14 * UI_S)
@@ -194,7 +200,7 @@ func _build_topbar(root: VBoxContainer) -> void:
 	menu_gap.custom_minimum_size = Vector2(46, 1)
 	top.add_child(menu_gap)
 
-	layer_label = _mk_label("第 一 层 · 初 见", 12, Color("#D46B60"))
+	layer_label = _mk_label(I18N.t("ui.layer1"), 12, Color("#D46B60"))
 	top.add_child(layer_label)
 
 	var sep := ColorRect.new()
@@ -203,7 +209,7 @@ func _build_topbar(root: VBoxContainer) -> void:
 	sep.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(sep)
 
-	chapter_label = _mk_label("兰若寺", 12, Color(0.92, 0.90, 0.86, 0.62))
+	chapter_label = _mk_label(I18N.t("ui.chapter1"), 12, Color(0.92, 0.90, 0.86, 0.62))
 	top.add_child(chapter_label)
 
 	var spacer := Control.new()
@@ -215,7 +221,7 @@ func _build_topbar(root: VBoxContainer) -> void:
 	hp_wrap.alignment = BoxContainer.ALIGNMENT_END
 	top.add_child(hp_wrap)
 
-	hp_wrap.add_child(_mk_label("魂 火", 11, Color(0.92, 0.90, 0.86, 0.58)))
+	hp_wrap.add_child(_mk_label(I18N.t("w.hp"), 11, Color(0.92, 0.90, 0.86, 0.58)))
 
 	var bar := Control.new()
 	bar.custom_minimum_size = Vector2(160, 8)
@@ -259,7 +265,7 @@ func _build_midbar(root: VBoxContainer) -> void:
 	var gw := HBoxContainer.new()
 	gw.add_theme_constant_override("separation", 9)
 	mid.add_child(gw)
-	gw.add_child(_mk_label("怨 气", 12, Color(0.92, 0.90, 0.86, 0.42)))
+	gw.add_child(_mk_label(I18N.t("w.grudge"), 12, Color(0.92, 0.90, 0.86, 0.42)))
 	grudge_label = _mk_label("0", 16, C_CINNABAR)
 	gw.add_child(grudge_label)
 	block_label = _mk_label("", 12, C_BLOCK)
@@ -270,7 +276,7 @@ func _build_midbar(root: VBoxContainer) -> void:
 	mid.add_child(sp)
 
 	# 选中需要指定目标的卡时，这里会亮起来告诉玩家下一步做什么
-	target_hint = _mk_label("▸ 点 一 个 敌 人", 12, Color("#E39A8E"))
+	target_hint = _mk_label(I18N.t("ui.target_hint"), 12, Color("#E39A8E"))
 	target_hint.visible = false
 	mid.add_child(target_hint)
 
@@ -281,10 +287,10 @@ func _build_midbar(root: VBoxContainer) -> void:
 	var piles := HBoxContainer.new()
 	piles.add_theme_constant_override("separation", 20)
 	mid.add_child(piles)
-	piles.add_child(_mk_label("忆", 11, Color(0.92, 0.90, 0.86, 0.3)))
+	piles.add_child(_mk_label(I18N.t("ui.pile_draw"), 11, Color(0.92, 0.90, 0.86, 0.3)))
 	draw_label = _mk_label("0", 11, Color(0.92, 0.90, 0.86, 0.62))
 	piles.add_child(draw_label)
-	piles.add_child(_mk_label("忘", 11, Color(0.92, 0.90, 0.86, 0.3)))
+	piles.add_child(_mk_label(I18N.t("ui.pile_discard"), 11, Color(0.92, 0.90, 0.86, 0.3)))
 	discard_label = _mk_label("0", 11, Color(0.92, 0.90, 0.86, 0.62))
 	piles.add_child(discard_label)
 
@@ -322,7 +328,7 @@ func _build_botbar(root: VBoxContainer) -> void:
 	root.add_child(bot)
 
 	end_turn_btn = Button.new()
-	end_turn_btn.text = "结 束 回 合"
+	end_turn_btn.text = I18N.t("ui.end_turn")
 	end_turn_btn.custom_minimum_size = Vector2(240, 48)
 	end_turn_btn.focus_mode = Control.FOCUS_NONE
 	end_turn_btn.add_theme_font_size_override("font_size", int(15 * UI_S))
@@ -354,6 +360,7 @@ func _build_overlay() -> void:
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.visible = false
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.theme = ui_theme
 	add_child(overlay)
 
 	var ob := ColorRect.new()
@@ -451,8 +458,8 @@ func _starter_deck() -> Array:
 func start_wave(idx: int) -> void:
 	wave = idx
 	var cfg: Dictionary = EnemyDB.WAVES[idx]
-	layer_label.text = str(cfg["layer"])
-	chapter_label.text = str(cfg["chapter"])
+	layer_label.text = I18N.t(str(cfg["layer"]))
+	chapter_label.text = I18N.t(str(cfg["chapter"]))
 
 	# [ART] 每层换背景，缺图时回退通用背景
 	if bg_tex != null:
@@ -477,7 +484,7 @@ func start_wave(idx: int) -> void:
 		ev.clicked.connect(_on_enemy_clicked)
 		enemies.append({
 			"key": key,
-			"name": str(data["name"]),
+			"seed": data,
 			"hp": int(data["hp"]),
 			"max_hp": int(data["hp"]),
 			"block": 0,
@@ -532,7 +539,7 @@ func _schedule_intents() -> void:
 		if bool(e["dead"]):
 			continue
 		if int(e["bind"]) > 0:
-			e["intent"] = {"kind": "sleep", "label": "缠 缚"}
+			e["intent"] = {"kind": "sleep"}
 			continue
 		var moves: Array = e["moves"]
 		var m: Dictionary = moves[int(e["move_idx"]) % moves.size()]
@@ -572,7 +579,7 @@ func _enemy_turn() -> void:
 
 		if int(e["bind"]) > 0:
 			e["bind"] = int(e["bind"]) - 1
-			_float_at(_enemy_anchor(e), "缠 缚", C_DAI)
+			_float_at(_enemy_anchor(e), I18N.t("ui.bound"), C_DAI)
 			_refresh_all()
 			await get_tree().create_timer(0.34).timeout
 			continue
@@ -602,7 +609,7 @@ func _enemy_turn() -> void:
 			_float_at(_enemy_anchor(e), "+%d" % val, C_BLOCK)
 		elif kind == "debuff":
 			player_poison += val
-			_float_at(_player_anchor(), "毒 +%d" % val, C_MOSS)
+			_float_at(_player_anchor(), "%s +%d" % [I18N.t("w.poison"), val], C_MOSS)
 
 		# 敌人中毒结算
 		if int(e["poison"]) > 0:
@@ -692,7 +699,7 @@ func _wave_clear() -> void:
 # ==================================================================
 func _on_card_clicked(idx: int) -> void:
 	if busy:
-		_toast("敌人行动中…", Color(0.80, 0.76, 0.70, 0.92))
+		_toast(I18N.t("ui.toast_busy"), Color(0.80, 0.76, 0.70, 0.92))
 		return
 	if not game_active:
 		return
@@ -704,17 +711,17 @@ func _on_card_clicked(idx: int) -> void:
 		return
 	var def: Dictionary = CardDB.CARDS[key]
 	if int(def["cost"]) > energy:
-		_toast("心力不足 · 需要 %d 点" % int(def["cost"]), Color("#E39A8E"))
+		_toast(I18N.t("ui.toast_no_energy", [int(def["cost"])]), Color("#E39A8E"))
 		return
 	if str(def["type"]) == "curse":
-		_toast("祟 牌 无 法 打 出", Color("#B69AC0"))
+		_toast(I18N.t("ui.toast_curse"), Color("#B69AC0"))
 		return
 
 	if bool(def["target"]):
 		var was_same := selected_index == idx
 		selected_index = -1 if was_same else idx
 		if was_same:
-			_toast("已取消选择", Color(0.80, 0.76, 0.70, 0.92))
+			_toast(I18N.t("ui.toast_deselect"), Color(0.80, 0.76, 0.70, 0.92))
 		_refresh_hand()
 		_refresh_highlight()
 	else:
@@ -725,7 +732,7 @@ func _on_enemy_clicked(idx: int) -> void:
 	if busy:
 		return
 	if selected_index < 0:
-		_toast("先点一张牌，再点敌人", Color(0.80, 0.76, 0.70, 0.92))
+		_toast(I18N.t("ui.toast_pick_first"), Color(0.80, 0.76, 0.70, 0.92))
 		return
 	if idx < 0 or idx >= enemies.size():
 		return
@@ -915,7 +922,7 @@ func _refresh_hp() -> void:
 	hp_fill.size = Vector2(160.0 * ratio, 8.0)
 	hp_label.text = "%d / %d" % [max(0, player_hp), player_max_hp]
 	grudge_label.text = str(grudge)
-	block_label.text = ("障 %d" % player_block) if player_block > 0 else ""
+	block_label.text = ("%s %d" % [I18N.t("w.block"), player_block]) if player_block > 0 else ""
 	block_label.add_theme_color_override("font_color", C_BLOCK)
 
 
@@ -1008,6 +1015,7 @@ func _show_overlay() -> void:
 func _hide_overlay() -> void:
 	overlay.visible = false
 	_pause_open = false
+	_panel_mode = ""
 
 
 func _panel_title(text: String) -> Label:
@@ -1052,6 +1060,7 @@ func _mk_button(text: String) -> Button:
 func _show_intro() -> void:
 	_clear_panel()
 	_show_overlay()
+	_panel_mode = "intro"
 
 	# 左立绘 + 右文案。缺图时整栏自动省略，退回原来的纯文字版式。
 	var row := HBoxContainer.new()
@@ -1083,11 +1092,11 @@ func _show_intro() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(col)
 
-	col.add_child(_panel_title("聊 斋 美 人"))
-	col.add_child(_panel_sub("战斗原型 · 兰若寺"))
+	col.add_child(_panel_title(I18N.t("ui.title")))
+	col.add_child(_panel_sub(I18N.t("ui.subtitle")))
 
 	var tip := Label.new()
-	tip.text = "每张卡牌有「显相」与「本相」两面。\n打出后自动翻面 —— 同一张牌，两套用法。\n\n显相偏防御与稳定，本相偏爆发但有代价。\n受伤积累「怨气」，怨气越深，某些牌越强。"
+	tip.text = I18N.t("ui.intro")
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tip.add_theme_font_size_override("font_size", int(13 * UI_S))
 	tip.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.62))
@@ -1096,44 +1105,53 @@ func _show_intro() -> void:
 
 	var brow := CenterContainer.new()
 	col.add_child(brow)
-	var b := _mk_button("入 梦")
+	var b := _mk_button(I18N.t("ui.enter"))
 	b.pressed.connect(_hide_overlay)
 	brow.add_child(b)
 
 
-func _show_reward() -> void:
+func _show_reward(keep: bool = false) -> void:
 	_clear_panel()
 	_show_overlay()
+	_panel_mode = "reward"
 
-	panel_vb.add_child(_panel_title("拾 得 情 念"))
-	panel_vb.add_child(_panel_sub("选一张，入你的牌组"))
+	panel_vb.add_child(_panel_title(I18N.t("ui.reward_title")))
+	panel_vb.add_child(_panel_sub(I18N.t("ui.reward_sub")))
 
-	var pool: Array = CardDB.REWARD_POOL.duplicate()
-	pool.shuffle()
-	var picks: Array = pool.slice(0, 3)
+	if not keep or _reward_picks.is_empty():
+		var pool: Array = CardDB.REWARD_POOL.duplicate()
+		pool.shuffle()
+		_reward_picks = pool.slice(0, 3)
+		_reward_sides.clear()
+		for i in _reward_picks.size():
+			_reward_sides.append("xian" if randf() < 0.5 else "ben")
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	panel_vb.add_child(row)
 
-	for k in picks:
-		var kk := str(k)
-		var side := "xian" if randf() < 0.5 else "ben"
+	for i in _reward_picks.size():
+		var kk := str(_reward_picks[i])
+		var side := str(_reward_sides[i])
 		var cv := CardView.new()
 		row.add_child(cv)
 		cv.setup(kk, side, -1)
 		cv.clicked.connect(func(_i: int):
 			draw_pile.append({"key": kk, "side": side})
 			draw_pile.shuffle()
+			_reward_picks.clear()
+			_reward_sides.clear()
 			_hide_overlay()
 			start_wave(wave + 1)
 		)
 
 	var brow := CenterContainer.new()
 	panel_vb.add_child(brow)
-	var skip := _mk_button("不 取")
+	var skip := _mk_button(I18N.t("ui.reward_skip"))
 	skip.pressed.connect(func():
+		_reward_picks.clear()
+		_reward_sides.clear()
 		_hide_overlay()
 		start_wave(wave + 1)
 	)
@@ -1144,28 +1162,29 @@ func _game_over(win: bool) -> void:
 	game_active = false
 	_clear_panel()
 	_show_overlay()
+	_panel_mode = "win" if win else "lose"
 	_pause_open = false
 
 	if win:
-		panel_vb.add_child(_panel_title("心 劫 已 解"))
-		panel_vb.add_child(_panel_sub("兰若寺的雾散了。\n她站在光里，第一次没有低着头。\n\n「谢谢你……记得我。」"))
+		panel_vb.add_child(_panel_title(I18N.t("ui.win_title")))
+		panel_vb.add_child(_panel_sub(I18N.t("ui.win_sub")))
 	else:
-		panel_vb.add_child(_panel_title("魂 火 将 熄"))
-		panel_vb.add_child(_panel_sub("你退了出来。\n她还在等 —— 等下一个愿意听的人。\n\n『这一世的执念，没能解开。』"))
+		panel_vb.add_child(_panel_title(I18N.t("ui.lose_title")))
+		panel_vb.add_child(_panel_sub(I18N.t("ui.lose_sub")))
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
 	panel_vb.add_child(row)
 
-	var b := _mk_button("再 来 一 次")
+	var b := _mk_button(I18N.t("ui.again"))
 	b.pressed.connect(func():
 		_hide_overlay()
 		start_game()
 	)
 	row.add_child(b)
 
-	var bq := _mk_button("退 出")
+	var bq := _mk_button(I18N.t("ui.exit"))
 	bq.pressed.connect(_quit_to_desktop)
 	row.add_child(bq)
 
@@ -1176,36 +1195,44 @@ func _game_over(win: bool) -> void:
 func _show_pause() -> void:
 	_clear_panel()
 	_show_overlay()
+	_panel_mode = "pause"
 	_pause_open = true
 
-	panel_vb.add_child(_panel_title("暂 停"))
-	panel_vb.add_child(_panel_sub("兰若寺的雾，还在等你。"))
+	panel_vb.add_child(_panel_title(I18N.t("ui.pause_title")))
+	panel_vb.add_child(_panel_sub(I18N.t("ui.pause_sub")))
 
 	# 结算之后没有"继续"可言，只留重开与退出
 	if game_active:
 		var r1 := CenterContainer.new()
 		panel_vb.add_child(r1)
-		var b1 := _mk_button("继 续 游 戏")
+		var b1 := _mk_button(I18N.t("ui.resume"))
 		b1.pressed.connect(func(): _hide_overlay())
 		r1.add_child(b1)
 
 	var r2 := CenterContainer.new()
 	panel_vb.add_child(r2)
-	var b2 := _mk_button("重 新 开 始")
+	var b2 := _mk_button(I18N.t("ui.restart"))
 	b2.pressed.connect(func():
 		_hide_overlay()
 		start_game()
 	)
 	r2.add_child(b2)
 
+	var rl := CenterContainer.new()
+	panel_vb.add_child(rl)
+	var bl := _mk_button(I18N.t("ui.language") + " · " + I18N.lang_name(I18N.code))
+	bl.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bl.pressed.connect(_show_language)
+	rl.add_child(bl)
+
 	var r3 := CenterContainer.new()
 	panel_vb.add_child(r3)
-	var b3 := _mk_button("退 出 到 桌 面")
+	var b3 := _mk_button(I18N.t("ui.quit_desktop"))
 	b3.pressed.connect(_quit_to_desktop)
 	r3.add_child(b3)
 
 	var hint := Label.new()
-	hint.text = "返回键可再次呼出本菜单"
+	hint.text = I18N.t("ui.pause_hint")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", int(11 * UI_S))
 	hint.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.30))
@@ -1291,3 +1318,102 @@ func _toast(text: String, color: Color = C_MOON) -> void:
 	tw.tween_interval(0.95)
 	tw.tween_property(box, "modulate:a", 0.0, 0.22)
 	tw.tween_callback(box.queue_free)
+
+
+# ==================================================================
+# 语言切换
+# ==================================================================
+func _show_language() -> void:
+	_clear_panel()
+	_show_overlay()
+	_panel_mode = "lang"
+
+	panel_vb.add_child(_panel_title(I18N.t("ui.lang_title")))
+	panel_vb.add_child(_panel_sub(I18N.t("ui.lang_sub")))
+
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel_vb.add_child(grid)
+
+	for l in I18N.LANGS:
+		var c := str(l["code"])
+		var b := _mk_button(str(l["name"]))
+		b.custom_minimum_size = Vector2(190, 42)
+		b.add_theme_font_size_override("font_size", int(13 * UI_S))
+		if c == I18N.code:
+			# 当前语言：朱砂底 + 亮字，一眼能看出选的是哪个
+			b.add_theme_color_override("font_color", Color("#F2BDB2"))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.70, 0.23, 0.19, 0.46)
+			sb.border_color = C_CINNABAR
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(2)
+			b.add_theme_stylebox_override("normal", sb)
+			b.add_theme_stylebox_override("hover", sb)
+		b.pressed.connect(func(): _apply_language(c))
+		grid.add_child(b)
+
+	var row := CenterContainer.new()
+	panel_vb.add_child(row)
+	var back := _mk_button(I18N.t("ui.lang_back"))
+	back.pressed.connect(_show_pause)
+	row.add_child(back)
+
+
+## 切换语言：存盘 → 重建 UI → 回到原来那一屏
+## 用 call_deferred 是因为调用方正是即将被销毁的按钮
+func _apply_language(c: String) -> void:
+	if c == I18N.code:
+		_show_language()
+		return
+	I18N.set_lang(c)
+	call_deferred("_rebuild_ui")
+
+
+## 整棵 UI 重来一遍，但局面数据（手牌 / 敌人 / 血量 / 波次）一律不动
+func _rebuild_ui() -> void:
+	var mode := _panel_mode
+	for ch in get_children():
+		remove_child(ch)
+		ch.queue_free()
+
+	_build_theme()
+	_build_ui()
+
+	if not enemies.is_empty():
+		_restore_field()
+		_refresh_all()
+
+	overlay.visible = false
+	_panel_mode = ""
+	match mode:
+		"intro": _show_intro()
+		"reward": _show_reward(true)
+		"pause": _show_pause()
+		"lang": _show_language()
+		"win": _game_over(true)
+		"lose": _game_over(false)
+
+
+## 按现有 enemies 数据重建敌人视图（不重置血量与行动序列）
+func _restore_field() -> void:
+	var cfg: Dictionary = EnemyDB.WAVES[wave]
+	layer_label.text = I18N.t(str(cfg["layer"]))
+	chapter_label.text = I18N.t(str(cfg["chapter"]))
+
+	if bg_tex != null:
+		var bgimg := AssetLoader.battle_bg(wave)
+		if bgimg != null:
+			bg_tex.texture = bgimg
+			bg_tex.visible = true
+
+	for i in enemies.size():
+		var e: Dictionary = enemies[i]
+		var ev := EnemyView.new()
+		field_box.add_child(ev)
+		ev.setup(e["seed"], i)
+		ev.clicked.connect(_on_enemy_clicked)
+		e["view"] = ev

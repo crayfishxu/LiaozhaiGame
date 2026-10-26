@@ -24,6 +24,7 @@ godot_project/
 ├── scenes/
 │   └── Battle.tscn            主场景（仅一个 Control 挂脚本，UI 由代码构建）
 ├── scripts/
+├── i18n/            # 11 个语种的文案表
 │   ├── CardDB.gd              卡牌数据表          ← 改数值只动这里
 │   ├── EnemyDB.gd             敌人与波次配置      ← 改数值只动这里
 │   ├── AssetLoader.gd         资源接入层          ← 美术接入的唯一入口
@@ -370,8 +371,8 @@ cd godot_project
 
 | 位置 | 字段 | 当前值 |
 |------|------|--------|
-| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `6` / `"0.1.5"` |
-| `project.godot` `[application]` | `config/version` | `"0.1.5"` |
+| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `7` / `"0.1.6"` |
+| `project.godot` `[application]` | `config/version` | `"0.1.6"` |
 
 出包后把旧产物移进 `build/archive/v<旧版本>/`，保持 `build/` 顶层只有当前版本的三个文件。
 
@@ -402,4 +403,79 @@ https://github.com/godotengine/godot/releases/download/4.6.3-stable/
 
 ---
 
-版本：v0.1.1 · 2026-10-23
+版本：v0.1.6 · 2026-10-26
+
+---
+
+## 九、多语言（v0.1.6 起）
+
+### 9.1 支持语种
+
+覆盖 Google Play 下载量前 10 的语言，外加简体中文作为源语言：
+
+| # | 语种 | code | 词表 |
+|---|------|------|------|
+| 1 | 简体中文（源语言） | `zh_CN` | `scripts/i18n/zh_CN.gd` |
+| 2 | English | `en` | `scripts/i18n/en.gd` |
+| 3 | 日本語 | `ja` | `scripts/i18n/ja.gd` |
+| 4 | 한국어 | `ko` | `scripts/i18n/ko.gd` |
+| 5 | Español | `es` | `scripts/i18n/es.gd` |
+| 6 | Português (Brasil) | `pt_BR` | `scripts/i18n/pt_BR.gd` |
+| 7 | Русский | `ru` | `scripts/i18n/ru.gd` |
+| 8 | Deutsch | `de` | `scripts/i18n/de.gd` |
+| 9 | Français | `fr` | `scripts/i18n/fr.gd` |
+| 10 | Italiano | `it` | `scripts/i18n/it.gd` |
+| 11 | Bahasa Indonesia | `id` | `scripts/i18n/id.gd` |
+
+### 9.2 怎么切
+
+**设置 → 语言**（暂停菜单里），或直接改 `I18N.code`。切换后**立即生效且不丢局面** —— 手牌、血量、能量、当前波次全部保留，只是整棵 UI 重建一遍。
+
+首次启动按系统语言自动选（`OS.get_locale()`），识别不了回退英文。选择存在 `user://settings.cfg`，下次启动沿用。
+
+### 9.3 加一条文案
+
+1. 在 **`scripts/i18n/zh_CN.gd`** 里加 key，例如 `"ui.new_thing": "新东西"`；
+2. 其余 10 个文件加同名 key（缺了会回退英文，再缺就把 key 打在界面上，不会崩）；
+3. 代码里写 `I18N.t("ui.new_thing")`，带占位用 `I18N.t("ui.x", [5])` 配 `%d` / `%s`。
+
+一致性检查：
+
+```gdscript
+I18N.missing("de")   # 返回德语缺哪些 key
+```
+
+### 9.4 词条组织
+
+| 前缀 | 用途 |
+|------|------|
+| `ui.*` | 界面文案 |
+| `w.*` | 单个词（障 / 毒 / 弱 / 缠），拼数字时复用 |
+| `t.*` | 卡牌类型（嗔 / 障 / 念 / 执 / 祟） |
+| `e.*` | 敌人名 |
+| `i.*` | 意图动词（噬 / 枝 / 鞭 …） |
+| `c.{key}` | 卡名 |
+| `c.{key}.x` / `.b` | 显相 / 本相描述 |
+
+卡牌与敌人的**数据表不再存中文**，只存 key。`CardDB.CARDS` 里已经没有 `name` / `text` 字段，改文案只动 `i18n/`。
+
+### 9.5 排版怎么不被长文本撑破
+
+德语、俄语普遍比中文长 80%–120%，而卡面是固定的 130×196。三个位置做了运行时自适应（`CardView._fit_labels()` / `EnemyView._fit_name()` / `_fit_intent()`）：按实际排版尺寸逐级降字号，直到放得下，最低 9px。
+
+- 卡名：20 → 11
+- 卡面描述：14 → 9
+- 显相 / 本相 侧标：14 → 8
+- 敌人名：17 → 10，意图条：16 → 11
+
+**踩过的坑**：给意图条的 Label 加 `clip_text = true` 会让它的最小宽度变成 0，而它装在一个 `SHRINK_CENTER` 的 PanelContainer 里 —— 整个面板塌成一条边距，文字全部消失。长文本只能靠缩字号，不能靠 clip。
+
+### 9.6 字体
+
+`I18N.font_names()` 给出一条回退链（PingFang → 微软雅黑 → Noto Sans CJK SC/JP/KR → Noto Sans → sans-serif）。中/日/韩 靠 CJK 字体，拉丁与西里尔由无衬线字体覆盖，安卓上缺字时再走系统级回退。不打包字体文件，包体不变。
+
+### 9.7 已知限制
+
+- 翻译是初稿，正式上线前建议找母语者过一遍 —— 尤其是日韩的敬体程度、俄语的格变化、德语的复合词长度。
+- 只有 11 种语言，Play Console 商店页（标题 / 简介 / 截图）需要另行本地化，App 内的语种不影响商店页。
+- 界面里没有「跟随系统」选项，切过一次就固定了。想加的话在 `I18N.LANGS` 前面插一条 `system` 并在 `set_lang` 里走 `detect()`。

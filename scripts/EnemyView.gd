@@ -73,7 +73,7 @@ func setup(data: Dictionary, idx: int) -> void:
 	add_theme_constant_override("separation", 6)
 	alignment = BoxContainer.ALIGNMENT_CENTER
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_build(str(data.get("name", "")))
+	_build(I18N.enemy_name(enemy_key))
 	refresh()
 	gui_input.connect(_on_gui_input)
 	mouse_entered.connect(_on_enter)
@@ -160,6 +160,7 @@ func _build(enemy_name: String) -> void:
 	_name_label.add_theme_font_size_override("font_size", 17)
 	_name_label.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.78))
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_name_label.clip_text = true
 	add_child(_name_label)
 
 	# ---- 血条 ----
@@ -210,11 +211,11 @@ func refresh_from(e: Dictionary) -> void:
 	dead = bool(e.get("dead", false))
 
 	var it: Dictionary = e.get("intent", {})
-	_intent_label.text = str(it.get("label", "—"))
+	_intent_label.text = I18N.intent_text(it) if not it.is_empty() else "—"
 	var kind := str(it.get("kind", "none"))
 	if bind > 0:
 		kind = "sleep"
-		_intent_label.text = "缠 缚"
+		_intent_label.text = I18N.t("ui.bound")
 	_intent_label.add_theme_color_override("font_color", INTENT_COLORS.get(kind, C_MOON))
 	_intent_style.border_color = Color(INTENT_COLORS.get(kind, C_MOON), 0.45)
 	_intent_style.bg_color = Color(INTENT_COLORS.get(kind, C_MOON), 0.10)
@@ -232,13 +233,13 @@ func refresh() -> void:
 		_status_box.remove_child(c)
 		c.queue_free()
 	if block > 0:
-		_status_box.add_child(_chip("障 %d" % block, Color("#A9BEC7")))
+		_status_box.add_child(_chip(_stat("w.block", block), Color("#A9BEC7")))
 	if poison > 0:
-		_status_box.add_child(_chip("毒 %d" % poison, Color("#8FA36F")))
+		_status_box.add_child(_chip(_stat("w.poison", poison), Color("#8FA36F")))
 	if weak > 0:
-		_status_box.add_child(_chip("弱 %d" % weak, Color("#B69AC0")))
+		_status_box.add_child(_chip(_stat("w.weak", weak), Color("#B69AC0")))
 	if bind > 0:
-		_status_box.add_child(_chip("缠 %d" % bind, Color("#9FB6BC")))
+		_status_box.add_child(_chip(_stat("w.bind", bind), Color("#9FB6BC")))
 
 	# 立绘 / 占位
 	var art := AssetLoader.enemy_art(enemy_key)
@@ -257,6 +258,40 @@ func refresh() -> void:
 
 	modulate.a = 0.24 if dead else 1.0
 	mouse_filter = Control.MOUSE_FILTER_IGNORE if dead else Control.MOUSE_FILTER_STOP
+
+	_fit_name()
+	_fit_intent()
+
+
+## "障 5" —— 词与数字分开存，翻译时不用为每种语言再写一遍模板
+func _stat(word_key: String, value: int) -> String:
+	return "%s %d" % [I18N.t(word_key), value]
+
+
+## 名字过长时缩字号（德语/俄语常见）
+func _fit_name() -> void:
+	var font := _name_label.get_theme_font("font")
+	if font == null:
+		return
+	var max_w := body_w + 26.0
+	var size := 17
+	while size > 10 and font.get_string_size(
+			_name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
+		size -= 1
+	_name_label.add_theme_font_size_override("font_size", size)
+
+
+## 意图条同理，但不能缩得太小，否则看不清
+func _fit_intent() -> void:
+	var font := _intent_label.get_theme_font("font")
+	if font == null:
+		return
+	var max_w := body_w + 30.0
+	var size := 16
+	while size > 11 and font.get_string_size(
+			_intent_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
+		size -= 1
+	_intent_label.add_theme_font_size_override("font_size", size)
 
 
 func _chip(text: String, color: Color) -> PanelContainer:

@@ -2,53 +2,56 @@ class_name EnemyDB
 extends RefCounted
 
 ## ------------------------------------------------------------------
-## 敌人数据表
+## 敌人数据表 —— 纯规则数据，不含展示文案
+##
+## 名字走 I18N.enemy_name(key)，意图条走 I18N.intent_text(move)。
+##
 ## moves 为行动循环，每回合按顺序取一条
-##   kind: attack 攻击 / defend 防御 / debuff 施毒
-##   val:  数值
-##   hits: 攻击次数（可省略）
-##   label: 意图条上显示的短标签
+##   kind:  attack 攻击 / defend 防御 / debuff 施毒
+##   val:   数值
+##   hits:  攻击次数（可省略）
+##   verb:  意图条上的动词词条（见 scripts/i18n/*.gd 的 i.* ）
 ## ------------------------------------------------------------------
 
 const ENEMIES := {
 	"youhun": {
-		"name": "游魂", "glyph": "魂", "hp": 28,
+		"glyph": "魂", "hp": 28,
 		"moves": [
-			{"kind": "attack", "val": 5, "label": "噬 5"},
-			{"kind": "attack", "val": 8, "label": "噬 8"},
-			{"kind": "defend", "val": 6, "label": "聚 6"},
+			{"kind": "attack", "val": 5, "verb": "i.bite"},
+			{"kind": "attack", "val": 8, "verb": "i.bite"},
+			{"kind": "defend", "val": 6, "verb": "i.cocoon"},
 		],
 	},
 	"shukui": {
-		"name": "树傀", "glyph": "傀", "hp": 34,
+		"glyph": "傀", "hp": 34,
 		"moves": [
-			{"kind": "attack", "val": 6, "label": "枝 6"},
-			{"kind": "debuff", "val": 2, "label": "缠 毒 2"},
-			{"kind": "attack", "val": 4, "hits": 2, "label": "鞭 4×2"},
+			{"kind": "attack", "val": 6, "verb": "i.branch"},
+			{"kind": "debuff", "val": 2, "verb": "i.wrap"},
+			{"kind": "attack", "val": 4, "hits": 2, "verb": "i.lash"},
 		],
 	},
 	"laolao": {
-		"name": "姥姥", "glyph": "姥", "hp": 52, "art_h": 184,
+		"glyph": "姥", "hp": 52, "art_h": 184,
 		"moves": [
-			{"kind": "attack", "val": 9, "label": "爪 9"},
-			{"kind": "defend", "val": 10, "label": "茧 10"},
-			{"kind": "attack", "val": 13, "label": "吸 13"},
+			{"kind": "attack", "val": 9, "verb": "i.claw"},
+			{"kind": "defend", "val": 10, "verb": "i.cocoon"},
+			{"kind": "attack", "val": 13, "verb": "i.drain"},
 		],
 	},
 	"benti": {
-		"name": "树妖姥姥", "glyph": "妖", "hp": 74, "art_h": 190,
+		"glyph": "妖", "hp": 74, "art_h": 190,
 		"moves": [
-			{"kind": "attack", "val": 11, "label": "万丝 11"},
-			{"kind": "debuff", "val": 3, "label": "腐 毒 3"},
-			{"kind": "attack", "val": 7, "hits": 2, "label": "双爪 7×2"},
-			{"kind": "attack", "val": 16, "label": "噬魂 16"},
+			{"kind": "attack", "val": 11, "verb": "i.tendril"},
+			{"kind": "debuff", "val": 3, "verb": "i.rot"},
+			{"kind": "attack", "val": 7, "hits": 2, "verb": "i.dual"},
+			{"kind": "attack", "val": 16, "verb": "i.souleat"},
 		],
 	},
 }
 
-## 波次配置
+## 波次配置 —— layer / chapter 存的是词条 key，显示时再翻译
 const WAVES := [
-	{"layer": "第 一 层 · 初 见", "chapter": "兰若寺 · 外院", "enemies": ["youhun", "shukui"]},
-	{"layer": "第 二 层 · 执", "chapter": "兰若寺 · 佛堂", "enemies": ["laolao"]},
-	{"layer": "第 三 层 · 解", "chapter": "兰若寺 · 妖窟", "enemies": ["benti"]},
+	{"layer": "ui.layer1", "chapter": "ui.chapter1", "enemies": ["youhun", "shukui"]},
+	{"layer": "ui.layer2", "chapter": "ui.chapter2", "enemies": ["laolao"]},
+	{"layer": "ui.layer3", "chapter": "ui.chapter3", "enemies": ["benti"]},
 ]

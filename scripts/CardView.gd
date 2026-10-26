@@ -85,9 +85,9 @@ func _build() -> void:
 
 	# ---- 显 / 本 标识 ----
 	_side_label = Label.new()
-	_side_label.position = Vector2(89, 10)
-	_side_label.size = Vector2(32, 18)
-	_side_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_side_label.position = Vector2(38, 10)
+	_side_label.size = Vector2(84, 18)
+	_side_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_side_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_side_label.add_theme_font_size_override("font_size", 14)
 	_side_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -159,8 +159,8 @@ func _apply_visual() -> void:
 	var fx: Dictionary = def[side]
 
 	_cost_label.text = str(int(def["cost"]))
-	_name_label.text = str(def["name"])
-	_text_label.text = str(fx.get("text", ""))
+	_name_label.text = I18N.card_name(card_key)
+	_text_label.text = I18N.card_text(card_key, side)
 	_glyph_label.text = str(def["glyph"])
 
 	if side == "xian":
@@ -184,7 +184,8 @@ func _apply_visual() -> void:
 		_cost_label.add_theme_color_override("font_color", Color("#F2EDE3"))
 		_side_label.add_theme_color_override("font_color", Color("#C4645A"))
 
-	_side_label.text = "显" if side == "xian" else "本"
+	_side_label.text = I18N.t("ui.side_xian" if side == "xian" else "ui.side_ben")
+	_fit_labels()
 
 	# [ART] 有卡面图则显示，无则显示占位字符
 	var art := load_art()
@@ -197,6 +198,38 @@ func _apply_visual() -> void:
 		_glyph_label.visible = true
 
 	set_disabled(view_disabled)
+
+
+## 不同语言的文本长度差很大（德语、俄语常比中文长一倍），
+## 卡面尺寸又是固定的，所以按实际排版结果把字号缩到放得下为止。
+func _fit_labels() -> void:
+	var font := _name_label.get_theme_font("font")
+	if font == null:
+		return
+
+	# 卡名：单行，宽度超出就逐级缩小
+	var nsize := 20
+	while nsize > 11 and font.get_string_size(
+			_name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x > CARD_W - 10:
+		nsize -= 1
+	_name_label.add_theme_font_size_override("font_size", nsize)
+
+	# 显相 / 本相：德语、俄语的词比中文长得多
+	var ssize := 14
+	while ssize > 8 and font.get_string_size(
+			_side_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, ssize).x > 82:
+		ssize -= 1
+	_side_label.add_theme_font_size_override("font_size", ssize)
+
+	# 描述：按换行后的总高度缩，保证塞进 40px 的框里
+	var tsize := 14
+	while tsize > 9:
+		var sz := font.get_multiline_string_size(
+			_text_label.text, HORIZONTAL_ALIGNMENT_CENTER, CARD_W - 20, tsize)
+		if sz.y <= 40.0:
+			break
+		tsize -= 1
+	_text_label.add_theme_font_size_override("font_size", tsize)
 
 
 ## [ART] 卡面图：统一走 AssetLoader，约定路径见 AssetLoader 头部注释
