@@ -1,0 +1,31 @@
+; Engine configuration file.
+; 聊斋美人 · 卡牌肉鸽战斗原型
+; Godot 4.4
+
+config_version=5
+
+[application]
+
+config/name="Liaozhai Meiren - Battle Demo"
+config/description="聊斋美人 卡牌肉鸽 战斗原型（立绘与特效待接入）"
+run/main_scene="res://scenes/Battle.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.png"
+config/version="0.1.5"
+config/quit_on_go_back=false
+
+[display]
+
+window/size/viewport_width=1024
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation="sensor_landscape"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=1
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.070588, 0.094118, 0.109804, 1)

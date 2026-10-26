@@ -1,0 +1,54 @@
+# ==================================================================
+#  换行与二进制属性
+#  仓库内统一使用 LF；Windows 开发者检出时由 git 自行处理
+# ==================================================================
+
+# 默认策略：自动识别文本，检出时一律 LF
+* text=auto eol=lf
+
+# ---- Godot 工程文件（必须是 LF，否则 diff 会整文件飘红）----
+*.gd        text eol=lf
+*.tscn      text eol=lf
+*.tres      text eol=lf
+*.godot     text eol=lf
+*.cfg       text eol=lf
+*.import    text eol=lf
+*.uid       text eol=lf
+*.gdignore  text eol=lf
+*.gitignore text eol=lf
+
+# ---- 文档 ----
+*.md        text eol=lf
+*.txt       text eol=lf
+*.csv       text eol=lf
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# ---- 脚本 ----
+*.sh        text eol=lf
+*.py        text eol=lf
+
+# ---- 位图：二进制，禁止任何换行转换，否则文件会损坏 ----
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.bmp       binary
+*.tga       binary
+*.exr       binary
+*.hdr       binary
+
+# ---- 矢量图（文本格式，可 diff）----
+*.svg       text eol=lf
+
+# ---- 包与密钥：二进制 ----
+*.apk       binary
+*.aab       binary
+*.zip       binary
+*.jar       binary
+*.jks       binary
+*.keystore  binary
+*.ttf       binary
+*.otf       binary
