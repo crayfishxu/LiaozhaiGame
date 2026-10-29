@@ -26,6 +26,7 @@ var hand_index := -1
 var card_key := ""
 var side := "xian"
 var view_disabled := false
+var cost_override := -1
 
 var _style: StyleBoxFlat
 var _name_label: Label
@@ -37,10 +38,11 @@ var _glyph_label: Label
 var _art_rect: TextureRect
 
 
-func setup(key: String, p_side: String, idx: int = -1) -> void:
+func setup(key: String, p_side: String, idx: int = -1, p_cost: int = -1) -> void:
 	card_key = key
 	side = p_side
 	hand_index = idx
+	cost_override = p_cost
 	_build()
 	_apply_visual()
 
@@ -158,9 +160,9 @@ func _apply_visual() -> void:
 	var def: Dictionary = CardDB.CARDS[card_key]
 	var fx: Dictionary = def[side]
 
-	_cost_label.text = str(int(def["cost"]))
+	_cost_label.text = str(int(def["cost"]) if cost_override < 0 else cost_override)
 	_name_label.text = I18N.card_name(card_key)
-	_text_label.text = I18N.card_text(card_key, side)
+	_text_label.text = CardText.build(card_key, side)
 	_glyph_label.text = str(def["glyph"])
 
 	if side == "xian":
