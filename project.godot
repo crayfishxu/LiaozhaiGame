@@ -11,7 +11,7 @@ config/description="聊斋美人 卡牌肉鸽 Roguelike（全立绘 + 程序化�
 run/main_scene="res://scenes/Battle.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.png"
-config/version="0.1.7"
+config/version="0.1.8"
 config/quit_on_go_back=false
 
 [autoload]

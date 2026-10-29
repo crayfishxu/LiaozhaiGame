@@ -371,8 +371,8 @@ cd godot_project
 
 | 位置 | 字段 | 当前值 |
 |------|------|--------|
-| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `8` / `"0.1.7"` |
-| `project.godot` `[application]` | `config/version` | `"0.1.7"` |
+| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `9` / `"0.1.8"` |
+| `project.godot` `[application]` | `config/version` | `"0.1.8"` |
 
 出包后把旧产物移进 `build/archive/v<旧版本>/`，保持 `build/` 顶层只有当前版本的三个文件。
 
@@ -546,22 +546,31 @@ python tools/gen_audio.py sfx     # 只重生成音效
 Audio.play_bgm("layer2")        # 切歌，自动交叉淡化 0.9s，同 key 重复调用会忽略
 Audio.play_sfx("hit")           # 播一次音效
 Audio.play_sfx("coin", 0.0)     # 第二参数是音高随机范围，0 = 不随机
-Audio.cycle_music()             # 音量循环 0 → 20 → … → 100 → 0
+Audio.set_music_enabled(false)  # 音乐开关（淡出后停止播放，省电）
+Audio.set_sfx_enabled(false)    # 音效开关
+Audio.cycle_music()             # 音量 20 → 40 → … → 100 → 20；关着时点一下先打开
 Audio.cycle_sfx()
-Audio.toggle_mute()
 ```
 
 音效走 **10 个声道轮转**，同一帧连打多张牌不会互相截断。默认带 ±5% 音高随机（`play_sfx` 第二参数），避免重复触发时听出机械感。
 
-### 10.5 音量
+### 10.5 设置：两个独立开关
 
-暂停菜单里三个按钮，点一下循环一档：
+暂停菜单与开场页都有「设置」，进去是音乐、音效各一行：
 
 ```
-音乐 60%    音效 80%    静音
+音乐        60%   [ ●——]
+音效        80%   [——○ ]
 ```
 
-档位是 `[0, 0.2, 0.4, 0.6, 0.8, 1.0]`。写在 `user://settings.cfg` 的 `[audio]` 段，与 `[i18n]` 共用一个文件但互不干扰（`save_cfg` 会先 `load` 再写，不会覆盖语言设置）。
+- **开关**管「有没有声」，两者互不影响；**百分比按钮**管「多大声」，点一下升一档（20/40/60/80/100，循环）。
+- 关掉音乐时不是简单把音量压到 0，而是淡出 0.3s 后 `stop()`，不再解码播放（手机省电）；曲目名留着，打开时重新起播当前层。
+- 关音效前会先响一记 click，让玩家确认「按到了」；关掉后整行文字压暗，一眼能看出没声。
+- 开关是自绘控件 `scripts/UiSwitch.gd`（胶囊轨道 + 圆形滑块，0.14s 滑动），没有用 `CheckButton`：默认主题的开关图标是灰阶的，和墨 / 朱砂这套配色不搭。
+
+状态存在 `user://settings.cfg` 的 `[audio]` 段（`music` / `sfx` / `music_on` / `sfx_on`），与 `[i18n]` 共用一个文件但互不干扰（`save_cfg` 会先 `load` 再写，不会覆盖语言设置）。
+
+> 旧版本只有「全局静音」`muted` 和 0 档音量，读取时会折算成两个开关，并在下次保存时把 `muted` 键删掉。
 
 ### 10.6 换个曲子 / 加个音效
 
@@ -580,3 +589,5 @@ Audio.toggle_mute()
 - **音效是单声道**。手机上外放听不出差别，戴耳机时所有音效都在正中。要做立体声摊开得给每个音效单独摆位。
 - **没有环境音层**。风声是混在 BGM 里的，不是独立循环层，所以切层时风声会跟着换。
 - **BGM 只有 21–33 秒**。循环三分钟后会明显听出重复。正式版建议做到 60–90 秒，或加「主题 + 变奏」两段随机拼。
+- **headless 强制退出偶发 `2 resources still in use`**。`stop()` 的真正释放发生在音频线程，`--quit-after` 直接掐主循环时偶尔来不及，报的是 `AudioStreamPlaybackOggVorbis` 没释放。真机走正常退出路径不受影响，也不影响包体；只在跑冒烟脚本时当噪音忽略。
+- **`ui.mute` / `ui.unmute` 两条词条已废弃**。全局静音拆成两个开关后它们没人用了，暂时留在词表里（删掉要动 11 个文件，风险大于收益）。
