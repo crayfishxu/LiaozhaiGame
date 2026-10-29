@@ -591,3 +591,56 @@ Audio.cycle_sfx()
 - **BGM 只有 21–33 秒**。循环三分钟后会明显听出重复。正式版建议做到 60–90 秒，或加「主题 + 变奏」两段随机拼。
 - **headless 强制退出偶发 `2 resources still in use`**。`stop()` 的真正释放发生在音频线程，`--quit-after` 直接掐主循环时偶尔来不及，报的是 `AudioStreamPlaybackOggVorbis` 没释放。真机走正常退出路径不受影响，也不影响包体；只在跑冒烟脚本时当噪音忽略。
 - **`ui.mute` / `ui.unmute` 两条词条已废弃**。全局静音拆成两个开关后它们没人用了，暂时留在词表里（删掉要动 11 个文件，风险大于收益）。
+
+---
+
+## 十一、正式包与上架（v0.1.8 起）
+
+### 11.1 三种包，别混用
+
+| 命令 | 预设 | 签名 | 用途 |
+|---|---|---|---|
+| `tools/build_android.sh debug` | Android Debug APK | debug key | 本地开发，**不要外发** |
+| `tools/build_android.sh apk` | Android Release APK | upload key | 给测试 / 侧载，可直接装 |
+| `tools/build_android.sh aab` | Google Play AAB | upload key | 上传 Play Console |
+
+三个预设都在 `export_presets.cfg`，后两个走 gradle 构建（`use_gradle_build=true`），
+`export_format` 分别是 0（APK）和 1（AAB）。签名口令从 `~/.liaozhai_keystore_pass`
+读取，脚本和预设里都不出现明文。
+
+### 11.2 为什么通用 APK 有 153 MB
+
+`lib/armeabi-v7a/libgodot_android.so` 74 MB + `lib/arm64-v8a/…` 70 MB，两个 ABI 的引擎库
+**以不压缩方式存放**（`compress_native_libraries=false`），这是 Godot 的默认：安装时不用解压，
+启动更快。AAB 只有 60 MB，是因为 Play 会按设备 ABI 拆分下发，用户实际下载约 40–60 MB。
+
+想压小通用 APK，把预设里的 `gradle_build/compress_native_libraries` 改成 `true`，
+代价是安装时解压、首次启动略慢。
+
+### 11.3 出包后必须核对的四项
+
+```bash
+AAPT=$(ls ~/Library/Android/sdk/build-tools/*/aapt2 | tail -1)
+APKSIGNER=$(ls ~/Library/Android/sdk/build-tools/*/apksigner | tail -1)
+
+$AAPT dump badging build/liaozhai-release.apk | head -6     # versionCode / versionName / minSdk
+$AAPT dump permissions build/liaozhai-release.apk           # 只有 package 一行 = 零权限
+$APKSIGNER verify --print-certs build/liaozhai-release.apk  # 证书 SHA-256 应恒为 4e97b4c8…
+unzip -l build/liaozhai-release.aab | grep -cE "\.oggvorbisstr|\.sample"   # 21 = 3 BGM + 18 音效
+```
+
+### 11.4 上架相关的运行时行为
+
+- **沉浸模式**：`screen/immersive_mode=true`，状态栏与导航栏隐藏（真机确认）。
+- **启动图**：`boot_splash/image` 指到 1024 图标，底色取图标自身的鸦青，和 Android 12
+  的系统启动画面（自适应图标）颜色一致，启动不闪白。
+- **切后台**：`AudioManager._notification` 收到 `NOTIFICATION_APPLICATION_PAUSED` /
+  `WM_WINDOW_FOCUS_OUT` 立即停播，回来时重新起播当前层——不会在后台偷跑音乐。
+- **弹窗遮挡**：手牌区与「结束回合」条在开弹窗（地图 / 开场 / 结算 / 暂停）时整块隐藏，
+  避免透过半透明遮罩看到战斗按钮。
+- **返回键**：弹窗逐层退；开场进暂停后多一个「返回」，不会出现只能重开或退出的死路。
+
+### 11.5 商店素材与检查单
+
+截图、图标、特色图的规格与 Play Console 待填项，见 [`doc/06_上架清单.md`](doc/06_上架清单.md)。
+截图放在 `build/store/`（不进 git），UI 有改动就要重拍。
