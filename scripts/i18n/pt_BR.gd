@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "SAIR PARA A ÁREA DE TRABALHO",
 	"ui.pause_hint": "Pressione Voltar para reabrir este menu",
 	"ui.language": "IDIOMA",
+	"ui.settings": "Ajustes",
+	"ui.settings_sub": "Música e efeitos",
 	"ui.lang_title": "ESCOLHER IDIOMA",
 	"ui.lang_sub": "Aplica na hora. Sua partida é mantida.",
 	"ui.lang_back": "VOLTAR",

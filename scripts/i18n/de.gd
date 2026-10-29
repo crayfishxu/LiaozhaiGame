@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "ZUM DESKTOP",
 	"ui.pause_hint": "Zurück-Taste öffnet dieses Menü erneut",
 	"ui.language": "SPRACHE",
+	"ui.settings": "Einstellungen",
+	"ui.settings_sub": "Musik & Effekte",
 	"ui.lang_title": "SPRACHE WÄHLEN",
 	"ui.lang_sub": "Gilt sofort. Dein Fortschritt bleibt.",
 	"ui.lang_back": "ZURÜCK",

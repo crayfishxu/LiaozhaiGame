@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "デスクトップへ戻る",
 	"ui.pause_hint": "戻るキーでこのメニューを再表示",
 	"ui.language": "言語",
+	"ui.settings": "設定",
+	"ui.settings_sub": "音楽と効果音",
 	"ui.lang_title": "言語を選択",
 	"ui.lang_sub": "すぐに反映されます。進行状況は保持されます。",
 	"ui.lang_back": "戻る",

@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "SALIR AL ESCRITORIO",
 	"ui.pause_hint": "Pulsa Atrás para reabrir este menú",
 	"ui.language": "IDIOMA",
+	"ui.settings": "Ajustes",
+	"ui.settings_sub": "Música y efectos",
 	"ui.lang_title": "ELEGIR IDIOMA",
 	"ui.lang_sub": "Se aplica al instante. Tu partida se conserva.",
 	"ui.lang_back": "VOLVER",

@@ -68,6 +68,8 @@ const TEXT := {
 
 	# ---- 语言 ----
 	"ui.language": "语 言",
+	"ui.settings": "设置",
+	"ui.settings_sub": "音乐与音效",
 	"ui.lang_title": "选 择 语 言",
 	"ui.lang_sub": "切换后立即生效，当前局面不会丢失",
 	"ui.lang_back": "返 回",

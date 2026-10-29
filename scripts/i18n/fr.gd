@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "QUITTER VERS LE BUREAU",
 	"ui.pause_hint": "La touche Retour rouvre ce menu",
 	"ui.language": "LANGUE",
+	"ui.settings": "Réglages",
+	"ui.settings_sub": "Musique et sons",
 	"ui.lang_title": "CHOISIR LA LANGUE",
 	"ui.lang_sub": "Appliqué aussitôt. Ta partie est conservée.",
 	"ui.lang_back": "RETOUR",

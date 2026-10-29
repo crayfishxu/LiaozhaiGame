@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "ВЫЙТИ НА РАБОЧИЙ СТОЛ",
 	"ui.pause_hint": "Нажмите «Назад», чтобы открыть это меню снова",
 	"ui.language": "ЯЗЫК",
+	"ui.settings": "Настройки",
+	"ui.settings_sub": "Музыка и звуки",
 	"ui.lang_title": "ВЫБОР ЯЗЫКА",
 	"ui.lang_sub": "Применяется сразу. Прогресс сохраняется.",
 	"ui.lang_back": "НАЗАД",

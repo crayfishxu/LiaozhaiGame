@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "KELUAR KE DESKTOP",
 	"ui.pause_hint": "Tekan Kembali untuk membuka menu ini lagi",
 	"ui.language": "BAHASA",
+	"ui.settings": "Pengaturan",
+	"ui.settings_sub": "Musik & efek",
 	"ui.lang_title": "PILIH BAHASA",
 	"ui.lang_sub": "Langsung berlaku. Progresmu tetap.",
 	"ui.lang_back": "KEMBALI",

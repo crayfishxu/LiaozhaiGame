@@ -58,6 +58,8 @@ const TEXT := {
 	"ui.pause_hint": "Press Back to reopen this menu",
 
 	"ui.language": "LANGUAGE",
+	"ui.settings": "Settings",
+	"ui.settings_sub": "Music & sound",
 	"ui.lang_title": "SELECT LANGUAGE",
 	"ui.lang_sub": "Applies at once. Your run is kept.",
 	"ui.lang_back": "BACK",

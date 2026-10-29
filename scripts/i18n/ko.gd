@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "바탕화면으로 나가기",
 	"ui.pause_hint": "뒤로 가기 키로 이 메뉴를 다시 열 수 있다",
 	"ui.language": "언어",
+	"ui.settings": "설정",
+	"ui.settings_sub": "음악 및 효과음",
 	"ui.lang_title": "언어 선택",
 	"ui.lang_sub": "즉시 적용됩니다. 진행 상황은 유지됩니다.",
 	"ui.lang_back": "돌아가기",

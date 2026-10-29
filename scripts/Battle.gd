@@ -38,6 +38,9 @@ const DRAW_PER_TURN := 5
 ## 使手机横屏（1080p）下的实际字高达到可读水平。
 const UI_S := 1.3
 
+## 开关控件（胶囊 + 滑块），用 preload 而不依赖全局类名缓存
+const UiSwitch := preload("res://scripts/UiSwitch.gd")
+
 # ---------------- 运行时状态 ----------------
 var player_hp: int = START_HP
 var player_max_hp: int = START_HP
@@ -107,9 +110,13 @@ var target_hint: Label
 var grievance_label: Label
 var relic_btn: Button
 var _pause_open: bool = false
-## 当前弹窗种类：intro / reward / pause / lang / win / lose / ""
+## 当前弹窗种类：intro / reward / pause / settings / lang / win / lose / ""
 ## 切换语言要重建整个 UI，靠这个把玩家送回到原来的那一屏
 var _panel_mode: String = ""
+## 设置面板是从哪进的：pause / intro / ""（"" 表示从某个界面用返回键进）
+var _settings_from: String = ""
+## 设置面板里的行控件：kind -> {vol, sw, name}，改音量后就地更新不重建面板
+var _audio_rows: Dictionary = {}
 ## 战后三选一的候选项要留住，否则切语言重开面板会重新摇一次
 var _reward_picks: Array = []
 var _reward_sides: Array = []
@@ -130,8 +137,11 @@ func _notification(what: int) -> void:
 		_on_back_requested()
 
 
-## 返回键语义：暂停菜单开着就回到原来那一屏，否则呼出暂停菜单
+## 返回键语义：设置/暂停开着就退一层，否则呼出暂停菜单
 func _on_back_requested() -> void:
+	if _panel_mode == "settings":
+		_settings_back()
+		return
 	if overlay.visible and _pause_open:
 		_resume()
 		return
@@ -1505,11 +1515,20 @@ func _show_intro() -> void:
 	tip.add_theme_constant_override("line_spacing", 8)
 	col.add_child(tip)
 
-	var brow := CenterContainer.new()
+	var brow := HBoxContainer.new()
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	brow.add_theme_constant_override("separation", 12)
 	col.add_child(brow)
 	var b := _mk_button(I18N.t("ui.enter"))
 	b.pressed.connect(_enter_run)
 	brow.add_child(b)
+
+	# 开场就能先关音乐——手机上很多人在公共场合开第一把
+	var bset := _mk_button(I18N.t("ui.settings"))
+	bset.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bset.custom_minimum_size = Vector2(140, 46)
+	bset.pressed.connect(func(): _show_settings("intro"))
+	brow.add_child(bset)
 
 
 func _show_victory(kind: String, gold: int, heal: int) -> void:
@@ -1708,7 +1727,7 @@ func _game_over(win: bool) -> void:
 # 暂停菜单 / 退出
 # ==================================================================
 func _show_pause() -> void:
-	if _panel_mode != "pause" and _panel_mode != "lang":
+	if _panel_mode != "pause" and _panel_mode != "lang" and _panel_mode != "settings":
 		_prev_mode = _panel_mode
 	_clear_panel()
 	_show_overlay()
@@ -1750,23 +1769,12 @@ func _show_pause() -> void:
 	)
 	r2.add_child(b2)
 
-	# ---- 声音：三格一组，点一下循环一档 ----
-	var ra := HBoxContainer.new()
-	ra.alignment = BoxContainer.ALIGNMENT_CENTER
-	ra.add_theme_constant_override("separation", 10)
-	panel_vb.add_child(ra)
-	for kind in ["music", "sfx", "mute"]:
-		var ba := _mk_button(_audio_label(str(kind)))
-		ba.add_theme_font_size_override("font_size", int(13 * UI_S))
-		ba.custom_minimum_size = Vector2(190, 42)
-		ba.pressed.connect(func():
-			match str(kind):
-				"music": Audio.cycle_music()
-				"sfx": Audio.cycle_sfx()
-				"mute": Audio.toggle_mute()
-			_show_pause()
-		)
-		ra.add_child(ba)
+	# ---- 设置：音乐/音效开关都在里面，暂停菜单只留一个入口 ----
+	var rs := CenterContainer.new()
+	panel_vb.add_child(rs)
+	var bs := _mk_button(I18N.t("ui.settings"))
+	bs.pressed.connect(func(): _show_settings("pause"))
+	rs.add_child(bs)
 
 	var rl := CenterContainer.new()
 	panel_vb.add_child(rl)
@@ -1789,15 +1797,112 @@ func _show_pause() -> void:
 	panel_vb.add_child(hint)
 
 
-## 声音按钮上的文字：音乐 60% / 音效 80% / 静音
-func _audio_label(kind: String) -> String:
-	match kind:
-		"music":
-			return "%s %s" % [I18N.t("ui.music"), Audio.music_text()]
-		"sfx":
-			return "%s %s" % [I18N.t("ui.sfx"), Audio.sfx_text()]
+# ==================================================================
+# 设置（音乐 / 音效开关）
+# ==================================================================
+## from 记录从哪进来：pause / intro。返回时按这个回到原处。
+func _show_settings(from: String = "pause") -> void:
+	if _panel_mode != "settings" and _panel_mode != "pause" and _panel_mode != "lang":
+		_prev_mode = _panel_mode
+	_settings_from = from
+	_audio_rows.clear()
+
+	_clear_panel()
+	_show_overlay()
+	_panel_mode = "settings"
+
+	panel_vb.add_child(_panel_title(I18N.t("ui.settings")))
+	panel_vb.add_child(_panel_sub(I18N.t("ui.settings_sub")))
+
+	panel_vb.add_child(_audio_row("music"))
+	panel_vb.add_child(_audio_row("sfx"))
+
+	var row := CenterContainer.new()
+	panel_vb.add_child(row)
+	var back := _mk_button(I18N.t("ui.back"))
+	back.pressed.connect(_settings_back)
+	row.add_child(back)
+
+
+## 一行：名称 ——— 音量百分比 ——— 开关
+func _audio_row(kind: String) -> Control:
+	var is_music := kind == "music"
+	var on := Audio.music_on if is_music else Audio.sfx_on
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	row.custom_minimum_size = Vector2(470, 50)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var name_lb := Label.new()
+	name_lb.text = I18N.t("ui.music") if is_music else I18N.t("ui.sfx")
+	name_lb.add_theme_font_size_override("font_size", int(17 * UI_S))
+	name_lb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lb)
+
+	var vol := _mk_button(Audio.music_label() if is_music else Audio.sfx_label())
+	vol.custom_minimum_size = Vector2(88, 38)
+	vol.add_theme_font_size_override("font_size", int(13 * UI_S))
+	vol.pressed.connect(func():
+		if is_music:
+			Audio.cycle_music()
+		else:
+			Audio.cycle_sfx()
+		_sync_audio_row(kind)
+	)
+	row.add_child(vol)
+
+	var sw := UiSwitch.new()
+	sw.set_on(on, false)
+	sw.toggled.connect(func(v: bool):
+		if is_music:
+			Audio.set_music_enabled(v)
+			Audio.play_sfx("click", 0.0)
+		elif v:
+			Audio.set_sfx_enabled(true)
+			Audio.play_sfx("click", 0.0)
+		else:
+			Audio.play_sfx("click", 0.0)      # 先响再关，让玩家知道按到了
+			Audio.set_sfx_enabled(false)
+		_sync_audio_row(kind)
+	)
+	row.add_child(sw)
+
+	_audio_rows[kind] = {"vol": vol, "sw": sw, "name": name_lb}
+	_sync_audio_row(kind)
+	return row
+
+
+## 开关状态由 Audio 说了算，界面跟随；关掉时把文字压暗，一眼能看出没声
+func _sync_audio_row(kind: String) -> void:
+	var r: Dictionary = _audio_rows.get(kind, {})
+	if r.is_empty():
+		return
+	var is_music := kind == "music"
+	var on := Audio.music_on if is_music else Audio.sfx_on
+
+	var vol: Button = r["vol"]
+	vol.text = Audio.music_label() if is_music else Audio.sfx_label()
+	vol.modulate = Color(1, 1, 1, 1.0 if on else 0.34)
+
+	var name_lb: Label = r["name"]
+	name_lb.add_theme_color_override("font_color", C_MOON if on else Color(0.92, 0.90, 0.86, 0.42))
+
+	var sw = r["sw"]           # 动态取，避免把脚本类型写成 Control 后取不到 on
+	if sw.on != on:
+		sw.set_on(on, false)
+
+
+func _settings_back() -> void:
+	match _settings_from:
+		"intro":
+			_show_intro()
+		"pause":
+			_show_pause()
 		_:
-			return I18N.t("ui.unmute") if Audio.muted else I18N.t("ui.mute")
+			_prev_mode = ""
+			_resume()
 
 
 func _quit_to_desktop() -> void:
@@ -1957,6 +2062,7 @@ func _rebuild_ui() -> void:
 		"victory": _show_victory(_victory_kind, _victory_gold, _victory_heal)
 		"relic_choice": _show_relic_choice("elite")
 		"pause": _show_pause()
+		"settings": _show_settings(_settings_from)
 		"lang": _show_language()
 		"shop": _show_shop(node)
 		"rest": _show_rest(node)

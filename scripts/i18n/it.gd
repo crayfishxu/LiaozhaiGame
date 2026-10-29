@@ -53,6 +53,8 @@ const TEXT := {
 	"ui.quit_desktop": "ESCI AL DESKTOP",
 	"ui.pause_hint": "Il tasto Indietro riapre questo menu",
 	"ui.language": "LINGUA",
+	"ui.settings": "Impostazioni",
+	"ui.settings_sub": "Musica ed effetti",
 	"ui.lang_title": "SCEGLI LA LINGUA",
 	"ui.lang_sub": "Si applica subito. La partita resta.",
 	"ui.lang_back": "INDIETRO",
