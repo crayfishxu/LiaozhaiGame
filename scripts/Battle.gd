@@ -38,6 +38,13 @@ const DRAW_PER_TURN := 5
 ## 使手机横屏（1080p）下的实际字高达到可读水平。
 const UI_S := 1.3
 
+## 全界面统一的字号增量（设计单位）。要整体调大调小只改这一个数。
+const FONT_ADD := 2.0
+
+## 屏幕四边的统一留白（设计单位）。1 设计单位 ≈ 0.55dp（1080p / 440dpi 机型），
+## 28 在常见手机上约等于 15–21dp，对应「16dp 左右」。
+const PAD := 28
+
 ## 开关控件（胶囊 + 滑块），用 preload 而不依赖全局类名缓存
 const UiSwitch := preload("res://scripts/UiSwitch.gd")
 
@@ -107,6 +114,9 @@ var end_turn_btn: Button
 ## 否则地图/开场背后会露出「结束回合」
 var _hand_zone: Control = null
 var _bot_bar: Control = null
+## 顶部信息栏与中栏：地图界面自己带标题，这里要整块让位
+var _top_bar: Control = null
+var _mid_bar: Control = null
 var overlay: Control
 var panel_vb: VBoxContainer
 var menu_btn: Button
@@ -160,7 +170,7 @@ func _build_theme() -> void:
 	f.font_names = I18N.font_names()
 	ui_theme = Theme.new()
 	ui_theme.default_font = f
-	ui_theme.default_font_size = int(14 * UI_S)
+	ui_theme.default_font_size = int((14 + FONT_ADD) * UI_S)
 
 
 # ==================================================================
@@ -196,10 +206,10 @@ func _build_ui() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", PAD)
+	margin.add_theme_constant_override("margin_right", PAD)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", PAD)
 	margin.theme = ui_theme
 	add_child(margin)
 
@@ -218,7 +228,7 @@ func _build_ui() -> void:
 func _mk_label(text: String, size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", int(round(size * UI_S)))
+	l.add_theme_font_size_override("font_size", int(round((size + FONT_ADD) * UI_S)))
 	l.add_theme_color_override("font_color", color)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return l
@@ -226,14 +236,15 @@ func _mk_label(text: String, size: int, color: Color) -> Label:
 
 func _build_topbar(root: VBoxContainer) -> void:
 	var top := HBoxContainer.new()
-	top.custom_minimum_size = Vector2(0, 44)
+	top.custom_minimum_size = Vector2(0, 56)
+	_top_bar = top
 	top.add_theme_constant_override("separation", 12)
 	root.add_child(top)
 
 	# 左上角给悬浮的菜单按钮留出空间（按钮本体在 _build_overlay 之后创建，
 	# 保证它永远压在弹窗之上，任何界面状态下都能点到）
 	var menu_gap := Control.new()
-	menu_gap.custom_minimum_size = Vector2(46, 1)
+	menu_gap.custom_minimum_size = Vector2(66, 1)
 	top.add_child(menu_gap)
 
 	layer_label = _mk_label(I18N.t("ui.layer1"), 12, Color("#D46B60"))
@@ -296,6 +307,7 @@ func _build_field(root: VBoxContainer) -> void:
 func _build_midbar(root: VBoxContainer) -> void:
 	var mid := HBoxContainer.new()
 	mid.custom_minimum_size = Vector2(0, 26)
+	_mid_bar = mid
 	root.add_child(mid)
 
 	var gw := HBoxContainer.new()
@@ -314,7 +326,7 @@ func _build_midbar(root: VBoxContainer) -> void:
 	relic_btn.text = I18N.t("ui.relics") + " 0"
 	relic_btn.focus_mode = Control.FOCUS_NONE
 	relic_btn.custom_minimum_size = Vector2(66, 24)
-	relic_btn.add_theme_font_size_override("font_size", int(11 * UI_S))
+	relic_btn.add_theme_font_size_override("font_size", int((11 + FONT_ADD) * UI_S))
 	relic_btn.add_theme_color_override("font_color", Color("#C9A8B4"))
 	var rsb := StyleBoxFlat.new()
 	rsb.bg_color = Color(0.92, 0.90, 0.86, 0.06)
@@ -389,7 +401,7 @@ func _build_botbar(root: VBoxContainer) -> void:
 	end_turn_btn.text = I18N.t("ui.end_turn")
 	end_turn_btn.custom_minimum_size = Vector2(240, 48)
 	end_turn_btn.focus_mode = Control.FOCUS_NONE
-	end_turn_btn.add_theme_font_size_override("font_size", int(15 * UI_S))
+	end_turn_btn.add_theme_font_size_override("font_size", int((15 + FONT_ADD) * UI_S))
 
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(0.92, 0.90, 0.86, 0.06)
@@ -453,16 +465,16 @@ func _build_overlay() -> void:
 	menu_btn = Button.new()
 	menu_btn.text = "≡"
 	menu_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	menu_btn.position = Vector2(16, 10)
-	menu_btn.custom_minimum_size = Vector2(44, 44)
-	menu_btn.size = Vector2(44, 44)
+	menu_btn.position = Vector2(PAD, 16)
+	menu_btn.custom_minimum_size = Vector2(56, 56)
+	menu_btn.size = Vector2(56, 56)
 	menu_btn.focus_mode = Control.FOCUS_NONE
 	menu_btn.z_index = 200
 	var msb := StyleBoxFlat.new()
 	msb.bg_color = Color(0.07, 0.09, 0.11, 0.62)
 	msb.border_color = Color(0.92, 0.90, 0.86, 0.30)
 	msb.set_border_width_all(1)
-	msb.set_corner_radius_all(4)
+	msb.set_corner_radius_all(6)
 	var msb_h := msb.duplicate() as StyleBoxFlat
 	msb_h.bg_color = Color(0.70, 0.23, 0.19, 0.55)
 	msb_h.border_color = C_CINNABAR
@@ -470,7 +482,7 @@ func _build_overlay() -> void:
 	menu_btn.add_theme_stylebox_override("normal", msb)
 	menu_btn.add_theme_stylebox_override("hover", msb_h)
 	menu_btn.add_theme_stylebox_override("pressed", msb_h)
-	menu_btn.add_theme_font_size_override("font_size", int(26 * UI_S))
+	menu_btn.add_theme_font_size_override("font_size", int((26 + FONT_ADD) * UI_S))
 	menu_btn.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.86))
 	menu_btn.pressed.connect(_show_pause)
 	add_child(menu_btn)
@@ -1422,6 +1434,7 @@ func _show_overlay() -> void:
 func _hide_overlay() -> void:
 	overlay.visible = false
 	_set_field_bar(game_active)
+	_set_hud(true)
 	_pause_open = false
 	_panel_mode = ""
 	_clear_map()
@@ -1446,11 +1459,20 @@ func _set_field_bar(on: bool) -> void:
 		_bot_bar.visible = on
 
 
+## 地图自带「层数 / 章节 / 魂火 / 金币」标题，战斗 HUD 这时要让位，
+## 否则两层文字会叠在一起
+func _set_hud(on: bool) -> void:
+	if _top_bar != null and is_instance_valid(_top_bar):
+		_top_bar.visible = on
+	if _mid_bar != null and is_instance_valid(_mid_bar):
+		_mid_bar.visible = on
+
+
 func _panel_title(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", int(26 * UI_S))
+	l.add_theme_font_size_override("font_size", int((26 + FONT_ADD) * UI_S))
 	l.add_theme_color_override("font_color", C_MOON)
 	return l
 
@@ -1459,7 +1481,7 @@ func _panel_sub(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", int(13 * UI_S))
+	l.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	l.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.48))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
@@ -1470,7 +1492,7 @@ func _mk_button(text: String) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(196, 46)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", int(15 * UI_S))
+	b.add_theme_font_size_override("font_size", int((15 + FONT_ADD) * UI_S))
 	var n := StyleBoxFlat.new()
 	n.bg_color = Color(0.70, 0.23, 0.19, 0.20)
 	n.border_color = C_CINNABAR
@@ -1528,7 +1550,7 @@ func _show_intro() -> void:
 	var tip := Label.new()
 	tip.text = I18N.t("ui.intro")
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tip.add_theme_font_size_override("font_size", int(13 * UI_S))
+	tip.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	tip.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.62))
 	tip.add_theme_constant_override("line_spacing", 8)
 	col.add_child(tip)
@@ -1543,7 +1565,7 @@ func _show_intro() -> void:
 
 	# 开场就能先关音乐——手机上很多人在公共场合开第一把
 	var bset := _mk_button(I18N.t("ui.settings"))
-	bset.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bset.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	bset.custom_minimum_size = Vector2(140, 46)
 	bset.pressed.connect(func(): _show_settings("intro"))
 	brow.add_child(bset)
@@ -1701,14 +1723,14 @@ func _game_over(win: bool) -> void:
 	var dline := Label.new()
 	dline.text = I18N.t("ui.diagnosis_line", [tag])
 	dline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dline.add_theme_font_size_override("font_size", int(20 * UI_S))
+	dline.add_theme_font_size_override("font_size", int((20 + FONT_ADD) * UI_S))
 	dline.add_theme_color_override("font_color", C_LOTUS)
 	panel_vb.add_child(dline)
 
 	var dnote := Label.new()
 	dnote.text = note
 	dnote.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dnote.add_theme_font_size_override("font_size", int(13 * UI_S))
+	dnote.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	dnote.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.55))
 	dnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel_vb.add_child(dnote)
@@ -1716,7 +1738,7 @@ func _game_over(win: bool) -> void:
 	var stat := Label.new()
 	stat.text = I18N.t("share.stats", [Run.rounds, Run.played, Run.self_damage, Run.grudge_peak])
 	stat.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stat.add_theme_font_size_override("font_size", int(11 * UI_S))
+	stat.add_theme_font_size_override("font_size", int((11 + FONT_ADD) * UI_S))
 	stat.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.34))
 	panel_vb.add_child(stat)
 
@@ -1775,12 +1797,12 @@ func _show_pause() -> void:
 	rd.add_theme_constant_override("separation", 12)
 	panel_vb.add_child(rd)
 	var bd := _mk_button(I18N.t("ui.deck"))
-	bd.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bd.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	bd.custom_minimum_size = Vector2(150, 42)
 	bd.pressed.connect(func(): _show_deck(false))
 	rd.add_child(bd)
 	var bc := _mk_button(I18N.t("ui.codex"))
-	bc.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bc.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	bc.custom_minimum_size = Vector2(150, 42)
 	bc.pressed.connect(_show_codex)
 	rd.add_child(bc)
@@ -1804,7 +1826,7 @@ func _show_pause() -> void:
 	var rl := CenterContainer.new()
 	panel_vb.add_child(rl)
 	var bl := _mk_button(I18N.t("ui.language") + " · " + I18N.lang_name(I18N.code))
-	bl.add_theme_font_size_override("font_size", int(13 * UI_S))
+	bl.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	bl.pressed.connect(_show_language)
 	rl.add_child(bl)
 
@@ -1817,7 +1839,7 @@ func _show_pause() -> void:
 	var hint := Label.new()
 	hint.text = I18N.t("ui.pause_hint")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", int(11 * UI_S))
+	hint.add_theme_font_size_override("font_size", int((11 + FONT_ADD) * UI_S))
 	hint.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.30))
 	panel_vb.add_child(hint)
 
@@ -1861,14 +1883,14 @@ func _audio_row(kind: String) -> Control:
 
 	var name_lb := Label.new()
 	name_lb.text = I18N.t("ui.music") if is_music else I18N.t("ui.sfx")
-	name_lb.add_theme_font_size_override("font_size", int(17 * UI_S))
+	name_lb.add_theme_font_size_override("font_size", int((17 + FONT_ADD) * UI_S))
 	name_lb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_lb)
 
 	var vol := _mk_button(Audio.music_label() if is_music else Audio.sfx_label())
 	vol.custom_minimum_size = Vector2(88, 38)
-	vol.add_theme_font_size_override("font_size", int(13 * UI_S))
+	vol.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	vol.pressed.connect(func():
 		if is_music:
 			Audio.cycle_music()
@@ -1957,7 +1979,7 @@ func _float_at(pos: Vector2, text: String, color: Color) -> void:
 	var l := Label.new()
 	l.text = text
 	l.theme = ui_theme
-	l.add_theme_font_size_override("font_size", int(24 * UI_S))
+	l.add_theme_font_size_override("font_size", int((24 + FONT_ADD) * UI_S))
 	l.add_theme_color_override("font_color", color)
 	l.position = pos - Vector2(28, 14)
 	l.z_index = 100
@@ -1996,7 +2018,7 @@ func _toast(text: String, color: Color = C_MOON) -> void:
 	var l := Label.new()
 	l.theme = ui_theme
 	l.text = text
-	l.add_theme_font_size_override("font_size", int(15 * UI_S))
+	l.add_theme_font_size_override("font_size", int((15 + FONT_ADD) * UI_S))
 	l.add_theme_color_override("font_color", color)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2033,7 +2055,7 @@ func _show_language() -> void:
 		var c := str(l["code"])
 		var b := _mk_button(str(l["name"]))
 		b.custom_minimum_size = Vector2(190, 42)
-		b.add_theme_font_size_override("font_size", int(13 * UI_S))
+		b.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 		if c == I18N.code:
 			# 当前语言：朱砂底 + 亮字，一眼能看出选的是哪个
 			b.add_theme_color_override("font_color", Color("#F2BDB2"))
@@ -2128,6 +2150,7 @@ func _restore_field() -> void:
 func _show_map() -> void:
 	_clear_panel()
 	_show_overlay()
+	_set_hud(false)
 	_panel_mode = "map"
 	if _oc != null:
 		_oc.visible = false
@@ -2394,7 +2417,7 @@ func _show_event(n: Dictionary) -> void:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.custom_minimum_size = Vector2(620, 0)
-	body.add_theme_font_size_override("font_size", int(13 * UI_S))
+	body.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	body.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.72))
 	panel_vb.add_child(body)
 
@@ -2819,7 +2842,7 @@ func _wide_button(text: String, rarity: String) -> Button:
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size = Vector2(620, 54)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", int(13 * UI_S))
+	b.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	b.add_theme_color_override("font_color", C_MOON)
 	var col := _rarity_color(rarity)
 	var sb := StyleBoxFlat.new()

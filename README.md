@@ -222,14 +222,24 @@ art/bg/battle_bg.png          兰若寺背景
 | 基准分辨率 | `1024×720` | `project.godot` → `[display]`，缩放系数升到 **1.5** |
 | 拉伸模式 | `canvas_items` + `aspect=expand` | 超宽屏（19.5:9）左右扩展，不裁切 UI |
 | 屏幕方向 | `sensor_landscape` | 锁定横屏，允许左右翻转 |
-| 字号系数 | `UI_S = 1.3` | `Battle.gd` 顶部常量，`_mk_label()` 统一乘 |
+| 字号系数 | `UI_S = 1.3` + `FONT_ADD = 2` | 见下方「字号分两层」 |
+| 四边留白 | `PAD = 28` | 左右下三边统一，约 15–21dp（1080p/440dpi 上 ≈15.3dp） |
 | 沉浸模式 | `screen/immersive_mode=true` | 导出预设里，隐藏状态栏/导航栏 |
 
-字号要整体再调大 / 调小，只改 `Battle.gd` 里的 `UI_S` 一个常量即可；
-`CardView.gd` / `EnemyView.gd` 里的字号是按新尺寸手调的，改 `UI_S` 不会影响它们。
+**字号分两层**（v0.1.9 起）：
 
-元素尺寸也同步放大了一轮：卡牌 `130×196`（原 `106×162`）、敌人立绘 `152×196`（原 `132×172`）。
-纵向空间是硬约束 —— `topbar 44 + field + midbar 26 + handzone 232 + botbar 52 = 720`，
+- `UI_S` 是全局缩放，所有 `int(N * UI_S)` 的字号都乘它；
+- `FONT_ADD` 是「每个字号再加几号」，四个文件各有一个同名常量
+  （`Battle` / `CardView` / `EnemyView` / `MapView`），要整体再大一号就四个一起改。
+
+分开的理由：`UI_S` 一动，留白、按钮、面板会跟着一起缩放；`FONT_ADD` 只动字。
+上一版把两者混在一个常量里，想调字就得同时接受布局变形。
+
+自适应缩字号的下限（卡名 11、描述 9、敌人名 10）**不跟着 FONT_ADD 走**：
+下限抬高会让德语、俄语的长词直接溢出卡片，宁可让它缩回去。
+
+元素尺寸：卡牌 `130×196`、敌人立绘 `152×196`。
+纵向空间是硬约束 —— `topbar 56 + field + midbar 26 + handzone 232 + botbar 52 + 上下留白 38 = 720`，
 再往上堆元素就会把手牌区压扁。
 
 ### 7.2 返回键与退出
@@ -371,8 +381,8 @@ cd godot_project
 
 | 位置 | 字段 | 当前值 |
 |------|------|--------|
-| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `9` / `"0.1.8"` |
-| `project.godot` `[application]` | `config/version` | `"0.1.8"` |
+| `export_presets.cfg`（两个预设各一份） | `version/code` / `version/name` | `10` / `"0.1.9"` |
+| `project.godot` `[application]` | `config/version` | `"0.1.9"` |
 
 出包后把旧产物移进 `build/archive/v<旧版本>/`，保持 `build/` 顶层只有当前版本的三个文件。
 

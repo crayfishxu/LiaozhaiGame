@@ -13,6 +13,9 @@ signal open_relics
 signal open_codex
 
 const NODE_R := 27.0
+
+## 与 Battle 同步的字号增量
+const FONT_ADD := 2
 const HEADER_H := 54.0
 const FOOTER_H := 12.0
 
@@ -65,22 +68,22 @@ func _build() -> void:
 	# 顶部信息条
 	_header = HBoxContainer.new()
 	_header.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_header.offset_left = 70
-	_header.offset_right = -20
-	_header.offset_top = 8
+	_header.offset_left = 96      # 28 边距 + 56 菜单按钮 + 12 间隔
+	_header.offset_right = -28
+	_header.offset_top = 16
 	_header.offset_bottom = HEADER_H
 	_header.add_theme_constant_override("separation", 16)
 	add_child(_header)
 
 	var t := Label.new()
 	t.text = title_text
-	t.add_theme_font_size_override("font_size", int(17 * 1.2))
+	t.add_theme_font_size_override("font_size", int((17 + FONT_ADD) * 1.2))
 	t.add_theme_color_override("font_color", Color("#D46B60"))
 	_header.add_child(t)
 
 	var sub := Label.new()
 	sub.text = chapter_text
-	sub.add_theme_font_size_override("font_size", int(13 * 1.2))
+	sub.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * 1.2))
 	sub.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.55))
 	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_header.add_child(sub)
@@ -91,14 +94,14 @@ func _build() -> void:
 
 	var hp := Label.new()
 	hp.text = "%s %d/%d" % [I18N.t("w.hp"), Run.hp, Run.max_hp]
-	hp.add_theme_font_size_override("font_size", int(13 * 1.2))
+	hp.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * 1.2))
 	hp.add_theme_color_override("font_color", Color("#C9A8B4"))
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_header.add_child(hp)
 
 	var gold := Label.new()
 	gold.text = "%s %d" % [I18N.t("w.gold"), Run.gold]
-	gold.add_theme_font_size_override("font_size", int(13 * 1.2))
+	gold.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * 1.2))
 	gold.add_theme_color_override("font_color", Color("#B08D3F"))
 	gold.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_header.add_child(gold)
@@ -112,7 +115,7 @@ func _build() -> void:
 		b.text = I18N.t(str(spec["key"]))
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(84, 36)
-		b.add_theme_font_size_override("font_size", int(12 * 1.2))
+		b.add_theme_font_size_override("font_size", int((12 + FONT_ADD) * 1.2))
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		_style(b, Color(0.92, 0.90, 0.86, 0.06), Color(0.92, 0.90, 0.86, 0.22))
 		var sig: Signal = spec["sig"]
@@ -200,7 +203,7 @@ func _make_node(n: Dictionary) -> Button:
 		bg = base.darkened(0.35)
 
 	_style(b, bg, border, width)
-	b.add_theme_font_size_override("font_size", int(14 * 1.2))
+	b.add_theme_font_size_override("font_size", int((14 + FONT_ADD) * 1.2))
 	b.add_theme_color_override("font_color",
 		Color(0.96, 0.94, 0.90, 0.95) if open or is_cur else Color(0.92, 0.90, 0.86, 0.45))
 	b.disabled = not open
@@ -208,7 +211,7 @@ func _make_node(n: Dictionary) -> Button:
 	b.pressed.connect(func(): node_chosen.emit(id))
 
 	if type == "elite" or type == "boss":
-		b.add_theme_font_size_override("font_size", int(12 * 1.2))
+		b.add_theme_font_size_override("font_size", int((12 + FONT_ADD) * 1.2))
 	return b
 
 

@@ -22,6 +22,9 @@ const C_CINNABAR := Color("#B23A30")
 const CARD_W := 130.0
 const CARD_H := 196.0
 
+## 与 Battle 同步的字号增量：卡面文字整体 +2
+const FONT_ADD := 2
+
 var hand_index := -1
 var card_key := ""
 var side := "xian"
@@ -81,7 +84,7 @@ func _build() -> void:
 	_cost_label = Label.new()
 	_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cost_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_cost_label.add_theme_font_size_override("font_size", 15)
+	_cost_label.add_theme_font_size_override("font_size", 15 + FONT_ADD)
 	_cost_label.add_theme_color_override("font_color", Color("#E9E4D9"))
 	_cost_panel.add_child(_cost_label)
 
@@ -91,7 +94,7 @@ func _build() -> void:
 	_side_label.size = Vector2(84, 18)
 	_side_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_side_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_side_label.add_theme_font_size_override("font_size", 14)
+	_side_label.add_theme_font_size_override("font_size", 14 + FONT_ADD)
 	_side_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_side_label)
 
@@ -101,7 +104,7 @@ func _build() -> void:
 	_name_label.size = Vector2(CARD_W, 28)
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 20)
+	_name_label.add_theme_font_size_override("font_size", 20 + FONT_ADD)
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_name_label)
 
@@ -119,7 +122,7 @@ func _build() -> void:
 	_glyph_label.size = Vector2(CARD_W - 20, 82)
 	_glyph_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_glyph_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_glyph_label.add_theme_font_size_override("font_size", 34)
+	_glyph_label.add_theme_font_size_override("font_size", 34 + FONT_ADD)
 	_glyph_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_glyph_label)
 
@@ -145,7 +148,7 @@ func _build() -> void:
 	_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_text_label.add_theme_font_size_override("font_size", 14)
+	_text_label.add_theme_font_size_override("font_size", 14 + FONT_ADD)
 	_text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_text_label)
 
@@ -210,21 +213,21 @@ func _fit_labels() -> void:
 		return
 
 	# 卡名：单行，宽度超出就逐级缩小
-	var nsize := 20
+	var nsize := 20 + FONT_ADD
 	while nsize > 11 and font.get_string_size(
 			_name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x > CARD_W - 10:
 		nsize -= 1
 	_name_label.add_theme_font_size_override("font_size", nsize)
 
 	# 显相 / 本相：德语、俄语的词比中文长得多
-	var ssize := 14
+	var ssize := 14 + FONT_ADD
 	while ssize > 8 and font.get_string_size(
 			_side_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, ssize).x > 82:
 		ssize -= 1
 	_side_label.add_theme_font_size_override("font_size", ssize)
 
 	# 描述：按换行后的总高度缩，保证塞进 40px 的框里
-	var tsize := 14
+	var tsize := 14 + FONT_ADD
 	while tsize > 9:
 		var sz := font.get_multiline_string_size(
 			_text_label.text, HORIZONTAL_ALIGNMENT_CENTER, CARD_W - 20, tsize)

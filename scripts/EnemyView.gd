@@ -13,6 +13,9 @@ extends VBoxContainer
 signal clicked(index: int)
 
 const BODY_W := 152.0
+
+## 与 Battle 同步的字号增量：敌人名字/意图/血条整体 +2
+const FONT_ADD := 2
 const BODY_H := 196.0
 const BODY_H_MAX := 220.0
 const HP_BAR_W := 136.0
@@ -99,7 +102,7 @@ func _build(enemy_name: String) -> void:
 	_intent_label = Label.new()
 	_intent_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_intent_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_intent_label.add_theme_font_size_override("font_size", 16)
+	_intent_label.add_theme_font_size_override("font_size", 16 + FONT_ADD)
 	_intent_panel.add_child(_intent_label)
 
 	# ---- 立绘框 ----
@@ -133,7 +136,7 @@ func _build(enemy_name: String) -> void:
 	_glyph_label.text = glyph_text
 	_glyph_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_glyph_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_glyph_label.add_theme_font_size_override("font_size", 56)
+	_glyph_label.add_theme_font_size_override("font_size", 56 + FONT_ADD)
 	_glyph_label.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.8))
 	_glyph_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body_root.add_child(_glyph_label)
@@ -157,7 +160,7 @@ func _build(enemy_name: String) -> void:
 	_name_label = Label.new()
 	_name_label.text = enemy_name
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 17)
+	_name_label.add_theme_font_size_override("font_size", 17 + FONT_ADD)
 	_name_label.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.78))
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_name_label.clip_text = true
@@ -186,7 +189,7 @@ func _build(enemy_name: String) -> void:
 	# ---- 血量文字 ----
 	_hp_label = Label.new()
 	_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hp_label.add_theme_font_size_override("font_size", 14)
+	_hp_label.add_theme_font_size_override("font_size", 14 + FONT_ADD)
 	_hp_label.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.5))
 	_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hp_label)
@@ -274,7 +277,7 @@ func _fit_name() -> void:
 	if font == null:
 		return
 	var max_w := body_w + 26.0
-	var size := 17
+	var size := 17 + FONT_ADD
 	while size > 10 and font.get_string_size(
 			_name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
 		size -= 1
@@ -287,7 +290,7 @@ func _fit_intent() -> void:
 	if font == null:
 		return
 	var max_w := body_w + 30.0
-	var size := 16
+	var size := 16 + FONT_ADD
 	while size > 11 and font.get_string_size(
 			_intent_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
 		size -= 1
@@ -308,7 +311,7 @@ func _chip(text: String, color: Color) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", sb)
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_font_size_override("font_size", 13 + FONT_ADD)
 	l.add_theme_color_override("font_color", color)
 	p.add_child(l)
 	return p
