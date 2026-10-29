@@ -39,12 +39,49 @@ var _cache: Dictionary = {}
 var _fade_tween: Tween
 var _vol_gen: int = 0                 # 变更代次：过期的「淡出后停止」回调靠它作废
 var _vol_tweens: Array[Tween] = []
+var _suspended: bool = false          # 切到后台时挂起，回来后接着放
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_players()
 	load_cfg()
+
+
+## 切到后台 / 被来电或分屏打断时，不能继续在后台放音乐。
+## 这里直接 stop 而不是淡出：应用被系统挂起后不一定还有帧可以跑补间。
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			_suspend_audio()
+		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_WM_WINDOW_FOCUS_IN:
+			_resume_audio()
+
+
+func _suspend_audio() -> void:
+	if _suspended:
+		return
+	_suspended = true
+	_vol_gen += 1
+	_kill_vol_tweens()
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+	for i in 2:
+		var p := _players[i]
+		if p.playing:
+			p.stop()
+
+
+func _resume_audio() -> void:
+	if not _suspended:
+		return
+	_suspended = false
+	# 后台期间玩家可能把音乐关掉了，回来就别再起播
+	if not music_on or _bgm_key == "":
+		return
+	var k := _bgm_key
+	_bgm_key = ""
+	play_bgm(k)
 
 
 func _build_players() -> void:

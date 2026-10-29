@@ -2,8 +2,9 @@
 # 《聊斋美人》Android 打包脚本
 #
 # 用法：
-#   tools/build_android.sh apk    # 调试 APK，可直接装手机
-#   tools/build_android.sh aab    # Google Play 上传包（gradle + release 签名）
+#   tools/build_android.sh apk     # 正式签名 APK（gradle release，可直接分发给测试）
+#   tools/build_android.sh aab     # Google Play 上传包（gradle release + upload key 签名）
+#   tools/build_android.sh debug   # 调试 APK（本地开发用，debug key，不要外发）
 #
 # 签名口令不写在脚本里，从本地私有文件读取：
 #   ~/.liaozhai_keystore_pass     （单行口令，权限建议 600）
@@ -22,16 +23,31 @@ if [ -z "${JAVA_HOME:-}" ]; then
 fi
 
 MODE_INPUT="${1:-aab}"
+NEED_PASS=1
 case "$MODE_INPUT" in
 apk)
-	PRESET="Android Debug APK"
-	OUT="build/liaozhai-debug.apk"
-	EXPORT_FLAG="--export-debug"
+	PRESET="Android Release APK"
+	OUT="build/liaozhai-release.apk"
+	EXPORT_FLAG="--export-release"
 	;;
 aab)
 	PRESET="Google Play AAB"
 	OUT="build/liaozhai-release.aab"
 	EXPORT_FLAG="--export-release"
+	;;
+debug)
+	PRESET="Android Debug APK"
+	OUT="build/liaozhai-debug.apk"
+	EXPORT_FLAG="--export-debug"
+	NEED_PASS=0
+	;;
+*)
+	echo "用法: $0 apk|aab|debug" >&2
+	exit 2
+	;;
+esac
+
+if [ "$NEED_PASS" = "1" ]; then
 	if [ -f "$PASS_FILE" ]; then
 		# tr 去掉可能的换行，避免密码尾部多一个 \n
 		GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$(tr -d '\r\n' <"$PASS_FILE")"
@@ -41,12 +57,7 @@ aab)
 		echo "   请把密钥口令写成单行存进去，或设置 LIAOZHAI_KEYSTORE_PASS_FILE" >&2
 		exit 1
 	fi
-	;;
-*)
-	echo "用法: $0 apk|aab" >&2
-	exit 2
-	;;
-esac
+fi
 
 [ -n "${JAVA_HOME:-}" ] || {
 	echo "!! 找不到 JDK 17，请设置 JAVA_HOME" >&2

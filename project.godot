@@ -13,6 +13,10 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.png"
 config/version="0.1.8"
 config/quit_on_go_back=false
+boot_splash/bg_color=Color(0.0980392, 0.1490196, 0.145098, 1)
+boot_splash/image="res://art/icon/launcher/liaozhai_icon_1024.png"
+boot_splash/fullsize=false
+boot_splash/use_filter=true
 
 [autoload]
 

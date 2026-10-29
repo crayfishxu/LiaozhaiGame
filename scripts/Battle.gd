@@ -103,6 +103,10 @@ var energy_label: Label
 var field_box: HBoxContainer
 var hand_box: HBoxContainer
 var end_turn_btn: Button
+## 底部两块（手牌区 + 结束回合条），开弹窗时整块藏起来，
+## 否则地图/开场背后会露出「结束回合」
+var _hand_zone: Control = null
+var _bot_bar: Control = null
 var overlay: Control
 var panel_vb: VBoxContainer
 var menu_btn: Button
@@ -351,6 +355,7 @@ func _build_handzone(root: VBoxContainer) -> void:
 	var wrap := CenterContainer.new()
 	wrap.custom_minimum_size = Vector2(0, 232)
 	root.add_child(wrap)
+	_hand_zone = wrap
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 6)
@@ -378,6 +383,7 @@ func _build_botbar(root: VBoxContainer) -> void:
 	var bot := CenterContainer.new()
 	bot.custom_minimum_size = Vector2(0, 52)
 	root.add_child(bot)
+	_bot_bar = bot
 
 	end_turn_btn = Button.new()
 	end_turn_btn.text = I18N.t("ui.end_turn")
@@ -514,6 +520,7 @@ func start_encounter(enc: Dictionary, node_data: Dictionary = {}) -> void:
 	encounter = enc
 	node = node_data
 	game_active = true
+	_set_field_bar(true)
 	busy = false
 	selected_index = -1
 	player_block = 0
@@ -1409,10 +1416,12 @@ func _clear_panel() -> void:
 
 func _show_overlay() -> void:
 	overlay.visible = true
+	_set_field_bar(false)
 
 
 func _hide_overlay() -> void:
 	overlay.visible = false
+	_set_field_bar(game_active)
 	_pause_open = false
 	_panel_mode = ""
 	_clear_map()
@@ -1426,6 +1435,15 @@ func _clear_map() -> void:
 	if _map_view != null and is_instance_valid(_map_view):
 		_map_view.queue_free()
 		_map_view = null
+
+
+## 底部手牌区 / 结束回合条只在真正战斗时露出；
+## 地图、开场、结算这些弹窗背后不该看到它们
+func _set_field_bar(on: bool) -> void:
+	if _hand_zone != null and is_instance_valid(_hand_zone):
+		_hand_zone.visible = on
+	if _bot_bar != null and is_instance_valid(_bot_bar):
+		_bot_bar.visible = on
 
 
 func _panel_title(text: String) -> Label:
@@ -1744,6 +1762,13 @@ func _show_pause() -> void:
 		var b1 := _mk_button(I18N.t("ui.resume"))
 		b1.pressed.connect(func(): _hide_overlay())
 		r1.add_child(b1)
+	elif _prev_mode == "intro":
+		# 开场按返回键会进到这个菜单；不给条回头路的话，玩家只剩「重新开始」和「退出」
+		var ri := CenterContainer.new()
+		panel_vb.add_child(ri)
+		var bi := _mk_button(I18N.t("ui.back"))
+		bi.pressed.connect(_resume)
+		ri.add_child(bi)
 
 	var rd := HBoxContainer.new()
 	rd.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2819,6 +2844,8 @@ func _resume() -> void:
 	var m := _prev_mode
 	_prev_mode = ""
 	match m:
+		"intro":
+			_show_intro()
 		"map":
 			_show_map()
 		"victory":
