@@ -154,6 +154,12 @@ const TEXT := {
 	"ui.gamble_win": "Menang, emas +%d",
 	"ui.gamble_lose": "Kalah, emas -%d",
 	"ui.toast_no_attack": "Babak ini tidak bisa memainkan kartu serang",
+	"ui.audio": "Suara",
+	"ui.music": "Musik",
+	"ui.sfx": "Efek",
+	"ui.off": "Mati",
+	"ui.mute": "Bisukan",
+	"ui.unmute": "Aktifkan suara",
 
 	# ---- 地图 ----
 	"map.short.battle": "Tar",

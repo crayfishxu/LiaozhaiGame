@@ -154,6 +154,12 @@ const TEXT := {
 	"ui.gamble_win": "Выиграл, золото +%d",
 	"ui.gamble_lose": "Проиграл, золото -%d",
 	"ui.toast_no_attack": "В этот ход нельзя играть карты атаки",
+	"ui.audio": "Звук",
+	"ui.music": "Музыка",
+	"ui.sfx": "Эффекты",
+	"ui.off": "Выкл.",
+	"ui.mute": "Без звука",
+	"ui.unmute": "Включить звук",
 
 	# ---- 地图 ----
 	"map.short.battle": "Бой",

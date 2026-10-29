@@ -154,6 +154,12 @@ const TEXT := {
 	"ui.gamble_win": "勝った、金 +%d",
 	"ui.gamble_lose": "負けた、金 -%d",
 	"ui.toast_no_attack": "このターンは攻撃カードを出せない",
+	"ui.audio": "サウンド",
+	"ui.music": "音楽",
+	"ui.sfx": "効果音",
+	"ui.off": "オフ",
+	"ui.mute": "ミュート",
+	"ui.unmute": "ミュート解除",
 
 	# ---- 地图 ----
 	"map.short.battle": "戦",

@@ -593,6 +593,7 @@ func _add_block(n: int) -> void:
 		return
 	player_block += n
 	Run.block_total += n
+	Audio.play_sfx("block", 0.10)
 
 
 ## 手牌里是否有某张祟
@@ -604,6 +605,9 @@ func _has_curse(key: String) -> bool:
 
 
 func begin_player_turn(first: bool = false) -> void:
+	Audio.play_sfx("turn", 0.04)
+	if player_hp * 3 < Run.max_hp:
+		Audio.play_sfx("low_hp", 0.0)
 	busy = false
 	selected_index = -1
 	player_block = 0
@@ -664,16 +668,20 @@ func _schedule_intents() -> void:
 
 func _draw_cards(n: int) -> void:
 	var limit := _hand_limit()
+	var got := 0
 	for i in n:
 		if hand.size() >= limit:
-			return
+			break
 		if draw_pile.is_empty():
 			if discard_pile.is_empty():
-				return
+				break
 			draw_pile = discard_pile.duplicate()
 			draw_pile.shuffle()
 			discard_pile.clear()
 		hand.append(draw_pile.pop_back())
+		got += 1
+	if got > 0:
+		Audio.play_sfx("draw", 0.06)
 
 
 ## 手牌上限（阴气 -1，蚀心蛊 +2）
@@ -837,6 +845,7 @@ func _damage_player(dmg: int) -> int:
 		player_block -= absorbed
 		d -= absorbed
 	if d > 0:
+		Audio.play_sfx("hurt")
 		player_hp -= d
 		_turn_damage += d
 		Run.max_hit = maxi(Run.max_hit, d)
@@ -876,6 +885,7 @@ func _hit_enemy(e: Dictionary, dmg: int) -> void:
 
 
 func _kill_enemy(e: Dictionary) -> void:
+	Audio.play_sfx("enemy_die", 0.12)
 	e["dead"] = true
 	var v = e.get("view", null)
 	if v != null and is_instance_valid(v):
@@ -898,6 +908,7 @@ func _alive_enemies() -> Array:
 
 
 func _battle_victory() -> void:
+	Audio.play_sfx("victory")
 	if busy and not game_active:
 		return
 	busy = true
@@ -1028,6 +1039,7 @@ func play_card(h_idx: int, t_idx: int) -> void:
 		return
 
 	energy -= cost
+	Audio.play_sfx("card_play", 0.06)
 	if _has_curse("xinmo"):
 		_curse_tax_paid = true
 	if _free_play:
@@ -1109,6 +1121,7 @@ func play_card(h_idx: int, t_idx: int) -> void:
 			discard_pile.append(hand[di])
 			hand.remove_at(di)
 			Run.discards += 1
+			Audio.play_sfx("discard", 0.08)
 			if di < h_idx:
 				h_idx -= 1
 
@@ -1170,6 +1183,7 @@ func play_card(h_idx: int, t_idx: int) -> void:
 
 	# ---- 状态 ----
 	if fx.has("poison") and not tgt.is_empty():
+		Audio.play_sfx("poison", 0.08)
 		tgt["poison"] = int(tgt["poison"]) + int(fx["poison"])
 		_float_at(_enemy_anchor(tgt), "%s +%d" % [I18N.t("w.poison"), int(fx["poison"])], C_MOSS)
 	if fx.has("aoe_poison"):
@@ -1181,6 +1195,7 @@ func play_card(h_idx: int, t_idx: int) -> void:
 		for e in _alive_enemies():
 			e["weak"] = int(e["weak"]) + int(fx["aoe_weak"])
 	if fx.has("bind") and not tgt.is_empty():
+		Audio.play_sfx("bind", 0.10)
 		tgt["bind"] = int(tgt["bind"]) + int(fx["bind"]) + relics.bind_bonus()
 	if fx.has("aoe_bind"):
 		for e in _alive_enemies():
@@ -1228,6 +1243,7 @@ func play_card(h_idx: int, t_idx: int) -> void:
 			_kill_enemy(e)
 
 	# 翻面 + 入弃牌堆（消耗牌 / 能力牌 / 临时副本 直接移出本场）
+	Audio.play_sfx("card_flip", 0.05)
 	inst["side"] = "ben" if cur_side == "xian" else "xian"
 	var temp := bool(inst.get("temp", false))
 	hand.remove_at(h_idx)
@@ -1258,6 +1274,7 @@ func _deal(e: Dictionary, raw: int, def: Dictionary, side: String) -> int:
 		amount = int(floor(float(amount) * 0.75))
 	amount = relics.mod_damage(amount, def, side, e)
 	_hit_enemy(e, amount)
+	Audio.play_sfx("hit_heavy" if amount >= 15 else "hit")
 	_float_at(_enemy_anchor(e), "-%d" % amount, C_ROUGE)
 	var v = e.get("view", null)
 	if v != null and is_instance_valid(v):
@@ -1437,10 +1454,12 @@ func _mk_button(text: String) -> Button:
 	b.add_theme_stylebox_override("hover", h)
 	b.add_theme_stylebox_override("pressed", h)
 	b.add_theme_color_override("font_color", C_MOON)
+	b.pressed.connect(func(): Audio.play_sfx("click", 0.02))
 	return b
 
 
 func _show_intro() -> void:
+	Audio.play_bgm("layer1")
 	_clear_panel()
 	_show_overlay()
 	_panel_mode = "intro"
@@ -1585,6 +1604,7 @@ func _relic_take(id: String) -> void:
 	if Run.relic_count() >= 8:
 		_show_relic_replace(id)
 		return
+	Audio.play_sfx("relic")
 	Run.add_relic(id)
 	relics.setup(Run.relics, self)
 	_refresh_all()
@@ -1618,6 +1638,8 @@ func _show_relic_replace(new_id: String) -> void:
 
 
 func _game_over(win: bool) -> void:
+	if not win:
+		Audio.play_sfx("defeat")
 	game_active = false
 	busy = false
 	Run.outcome = "win" if win else "lose"
@@ -1728,6 +1750,24 @@ func _show_pause() -> void:
 	)
 	r2.add_child(b2)
 
+	# ---- 声音：三格一组，点一下循环一档 ----
+	var ra := HBoxContainer.new()
+	ra.alignment = BoxContainer.ALIGNMENT_CENTER
+	ra.add_theme_constant_override("separation", 10)
+	panel_vb.add_child(ra)
+	for kind in ["music", "sfx", "mute"]:
+		var ba := _mk_button(_audio_label(str(kind)))
+		ba.add_theme_font_size_override("font_size", int(13 * UI_S))
+		ba.custom_minimum_size = Vector2(190, 42)
+		ba.pressed.connect(func():
+			match str(kind):
+				"music": Audio.cycle_music()
+				"sfx": Audio.cycle_sfx()
+				"mute": Audio.toggle_mute()
+			_show_pause()
+		)
+		ra.add_child(ba)
+
 	var rl := CenterContainer.new()
 	panel_vb.add_child(rl)
 	var bl := _mk_button(I18N.t("ui.language") + " · " + I18N.lang_name(I18N.code))
@@ -1747,6 +1787,17 @@ func _show_pause() -> void:
 	hint.add_theme_font_size_override("font_size", int(11 * UI_S))
 	hint.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.30))
 	panel_vb.add_child(hint)
+
+
+## 声音按钮上的文字：音乐 60% / 音效 80% / 静音
+func _audio_label(kind: String) -> String:
+	match kind:
+		"music":
+			return "%s %s" % [I18N.t("ui.music"), Audio.music_text()]
+		"sfx":
+			return "%s %s" % [I18N.t("ui.sfx"), Audio.sfx_text()]
+		_:
+			return I18N.t("ui.unmute") if Audio.muted else I18N.t("ui.mute")
 
 
 func _quit_to_desktop() -> void:
@@ -1921,6 +1972,7 @@ func _rebuild_ui() -> void:
 
 ## 按现有 enemies 数据重建敌人视图（不重置血量与行动序列）
 func _restore_field() -> void:
+	Audio.play_bgm("layer%d" % (Run.layer + 1))
 	var cfg: Dictionary = EnemyDB.LAYERS[Run.layer]
 	layer_label.text = I18N.t(str(cfg["name"]))
 	chapter_label.text = I18N.t(str(cfg["chapter"]))
@@ -2058,6 +2110,7 @@ func _show_shop(n: Dictionary) -> void:
 		b.disabled = sold or Run.gold < price
 		b.pressed.connect(func():
 			if Run.spend(price):
+				Audio.play_sfx("coin")
 				Run.add_card(key, "xian")
 				st["bought_cards"].append(key)
 				_show_shop(n)
@@ -2077,6 +2130,7 @@ func _show_shop(n: Dictionary) -> void:
 		b2.disabled = sold2 or Run.gold < price2
 		b2.pressed.connect(func():
 			if Run.spend(price2):
+				Audio.play_sfx("coin")
 				Run.add_relic(rid)
 				relics.setup(Run.relics, self)
 				st["bought_relics"].append(rid)
@@ -2650,6 +2704,7 @@ func _wide_button(text: String, rarity: String) -> Button:
 	b.add_theme_stylebox_override("hover", h)
 	b.add_theme_stylebox_override("pressed", h)
 	b.add_theme_stylebox_override("disabled", sb)
+	b.pressed.connect(func(): Audio.play_sfx("click", 0.02))
 	return b
 
 

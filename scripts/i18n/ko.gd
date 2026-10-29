@@ -154,6 +154,12 @@ const TEXT := {
 	"ui.gamble_win": "이겼다, 금 +%d",
 	"ui.gamble_lose": "졌다, 금 -%d",
 	"ui.toast_no_attack": "이번 턴에는 공격 카드를 낼 수 없다",
+	"ui.audio": "사운드",
+	"ui.music": "음악",
+	"ui.sfx": "효과음",
+	"ui.off": "끔",
+	"ui.mute": "음소거",
+	"ui.unmute": "음소거 해제",
 
 	# ---- 地图 ----
 	"map.short.battle": "전",

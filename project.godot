@@ -7,16 +7,17 @@ config_version=5
 [application]
 
 config/name="Liaozhai Meiren - Battle Demo"
-config/description="聊斋美人 卡牌肉鸽 战斗原型（立绘与特效待接入）"
+config/description="聊斋美人 卡牌肉鸽 Roguelike（全立绘 + 程序化音乐音效）"
 run/main_scene="res://scenes/Battle.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.png"
-config/version="0.1.6"
+config/version="0.1.7"
 config/quit_on_go_back=false
 
 [autoload]
 
 Run="*res://scripts/RunState.gd"
+Audio="*res://scripts/AudioManager.gd"
 
 [display]
 

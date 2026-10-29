@@ -154,6 +154,12 @@ const TEXT := {
 	"ui.gamble_win": "Ganhou, ouro +%d",
 	"ui.gamble_lose": "Perdeu, ouro -%d",
 	"ui.toast_no_attack": "Neste turno não dá para jogar cartas de ataque",
+	"ui.audio": "Som",
+	"ui.music": "Música",
+	"ui.sfx": "Efeitos",
+	"ui.off": "Desligado",
+	"ui.mute": "Silenciar",
+	"ui.unmute": "Ativar som",
 
 	# ---- 地图 ----
 	"map.short.battle": "Com",
