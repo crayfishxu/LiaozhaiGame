@@ -128,6 +128,8 @@ var relic_btn: Button
 var _pause_open: bool = false
 ## 失败音只放一次（结算页会被重新渲染）
 var _defeat_sfx_done: bool = false
+## 图鉴 / 牌组里点开的那张卡（浮在弹窗之上的一层）
+var _card_detail: Control = null
 ## 当前弹窗种类：intro / reward / pause / settings / lang / win / lose / ""
 ## 切换语言要重建整个 UI，靠这个把玩家送回到原来的那一屏
 var _panel_mode: String = ""
@@ -153,8 +155,11 @@ func _notification(what: int) -> void:
 		_on_back_requested()
 
 
-## 返回键语义：设置/暂停开着就退一层，否则呼出暂停菜单
+## 返回键语义：卡牌详情 → 关详情；设置 → 退一层；暂停 → 继续；否则呼出暂停
 func _on_back_requested() -> void:
+	if _card_detail != null and is_instance_valid(_card_detail):
+		_close_card_detail()
+		return
 	if _panel_mode == "settings":
 		_settings_back()
 		return
@@ -1419,6 +1424,7 @@ func _refresh_highlight() -> void:
 # ==================================================================
 func _clear_panel() -> void:
 	_pause_open = false
+	_close_card_detail()
 	_clear_map()
 	if _oc != null:
 		_oc.visible = true
@@ -1507,8 +1513,24 @@ func _mk_button(text: String) -> Button:
 	b.add_theme_stylebox_override("hover", h)
 	b.add_theme_stylebox_override("pressed", h)
 	b.add_theme_color_override("font_color", C_MOON)
-	b.pressed.connect(func(): Audio.play_sfx("click", 0.02))
+	b.pressed.connect(func(): _click_sfx(b))
 	return b
+
+
+## 按钮的点击音。拖动列表时松手不算点击，别响
+func _click_sfx(b: Button) -> void:
+	var g = b.get_meta("tap_guard", null)
+	if g != null and not (g as TapGuard).peek_ok():
+		return
+	Audio.play_sfx("click", 0.02)
+
+
+## 放在可拖动列表里的按钮：既能点，也能让手指按着它拖动列表
+func _drag_friendly(b: Button) -> TapGuard:
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	var g := TapGuard.attach(b)
+	b.set_meta("tap_guard", g)
+	return g
 
 
 func _show_intro() -> void:
@@ -2245,7 +2267,7 @@ func _show_shop(n: Dictionary) -> void:
 	panel_vb.add_child(_panel_title(I18N.t("ui.shop_title")))
 	panel_vb.add_child(_panel_sub("%s %d" % [I18N.t("w.gold"), Run.gold]))
 
-	var scroll := ScrollContainer.new()
+	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(620, 360)
 	panel_vb.add_child(scroll)
 	var vb := VBoxContainer.new()
@@ -2263,7 +2285,10 @@ func _show_shop(n: Dictionary) -> void:
 			label = I18N.t("ui.sold") + "  ·  " + I18N.card_name(key)
 		var b := _wide_button(label, CardDB.rarity_of(key))
 		b.disabled = sold or Run.gold < price
+		var g := _drag_friendly(b)
 		b.pressed.connect(func():
+			if not g.ok():
+				return
 			if Run.spend(price):
 				Audio.play_sfx("coin")
 				Run.add_card(key, "xian")
@@ -2283,7 +2308,10 @@ func _show_shop(n: Dictionary) -> void:
 			label2 = I18N.t("ui.sold") + "  ·  " + RelicDB.name(rid)
 		var b2 := _wide_button(label2, RelicDB.rarity_of(rid))
 		b2.disabled = sold2 or Run.gold < price2
+		var g2 := _drag_friendly(b2)
 		b2.pressed.connect(func():
+			if not g2.ok():
+				return
 			if Run.spend(price2):
 				Audio.play_sfx("coin")
 				Run.add_relic(rid)
@@ -2298,7 +2326,10 @@ func _show_shop(n: Dictionary) -> void:
 	var rb := _wide_button("%s  ·  %s %d" % [
 		I18N.t("ui.shop_remove"), I18N.t("w.gold"), rm_price], "rare")
 	rb.disabled = Run.gold < rm_price
+	var g3 := _drag_friendly(rb)
 	rb.pressed.connect(func():
+		if not g3.ok():
+			return
 		if Run.spend(rm_price):
 			_show_deck(true, func():
 				st["removed"] = int(st["removed"]) + 1
@@ -2526,13 +2557,14 @@ func _show_deck(remove_mode: bool = false, cb: Callable = Callable()) -> void:
 		Run.deck.size(), Run.deck_limit,
 		"  ·  " + I18N.t("ui.deck_remove_hint") if remove_mode else ""]))
 
-	var scroll := ScrollContainer.new()
+	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(620, 384)
 	panel_vb.add_child(scroll)
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(grid)
 
 	for i in Run.deck.size():
@@ -2540,8 +2572,14 @@ func _show_deck(remove_mode: bool = false, cb: Callable = Callable()) -> void:
 		var cv := CardView.new()
 		grid.add_child(cv)
 		cv.setup(str(inst["key"]), str(inst["side"]), i)
+		# PASS 让手指的拖拽继续冒泡到 DragScroll，否则按在卡上就拖不动
+		cv.mouse_filter = Control.MOUSE_FILTER_PASS
+		var dk := str(inst["key"])
+		var ds := str(inst["side"])
 		if remove_mode:
 			cv.clicked.connect(func(idx: int): _do_remove(idx))
+		else:
+			cv.clicked.connect(func(_idx: int): _show_card_detail(dk, ds))
 
 	var row := CenterContainer.new()
 	panel_vb.add_child(row)
@@ -2574,6 +2612,155 @@ func _back_from_view() -> void:
 		_: _show_map()
 
 
+# ==================================================================
+# 卡牌详情（图鉴 / 牌组里点一张卡）
+# ==================================================================
+## 单独一层盖在弹窗上面，不动 panel_vb：
+## 这样返回时底下的图鉴 / 牌组还在，不用重建。
+func _show_card_detail(key: String, side: String) -> void:
+	_close_card_detail()
+	if not CardDB.CARDS.has(key):
+		return
+	var def: Dictionary = CardDB.CARDS[key]
+
+	var layer := Control.new()
+	layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.theme = ui_theme
+	# 盖住左上角那个菜单按钮（它是 z_index 200）和提示条（100），
+	# 否则详情开着还能从上面点进暂停菜单
+	layer.z_index = 260
+	add_child(layer)
+	_card_detail = layer
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.03, 0.04, 0.80)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed \
+				and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_close_card_detail()
+	)
+	layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(560, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.13, 0.15, 1.0)
+	sb.border_color = Color(0.70, 0.23, 0.19, 0.55)
+	sb.set_border_width_all(1)
+	sb.content_margin_left = 30
+	sb.content_margin_right = 30
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	panel.add_child(col)
+
+	col.add_child(_panel_title(I18N.card_name(key)))
+
+	# 费用圆 + 类型字 + 稀有度，和卡面左上角那颗圆点长得一样，不用再造词
+	var meta := HBoxContainer.new()
+	meta.alignment = BoxContainer.ALIGNMENT_CENTER
+	meta.add_theme_constant_override("separation", 10)
+	col.add_child(meta)
+
+	var badge := PanelContainer.new()
+	var bsb := StyleBoxFlat.new()
+	bsb.set_corner_radius_all(12)
+	bsb.bg_color = Color("#B23A30") if side == "ben" else Color("#22282C")
+	badge.add_theme_stylebox_override("panel", bsb)
+	badge.custom_minimum_size = Vector2(24, 24)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	meta.add_child(badge)
+
+	var cost := Label.new()
+	cost.text = str(int(def["cost"]))
+	cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cost.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
+	cost.add_theme_color_override("font_color", Color("#F2EDE3"))
+	badge.add_child(cost)
+
+	var tl := Label.new()
+	tl.text = "%s  ·  %s" % [
+		I18N.t("t." + str(def["type"])), _rarity_name(CardDB.rarity_of(key))]
+	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tl.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
+	tl.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.55))
+	meta.add_child(tl)
+
+	# 显相 / 本相 切换
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 10)
+	col.add_child(tabs)
+	for pair in [["xian", I18N.t("ui.side_xian")], ["ben", I18N.t("ui.side_ben")]]:
+		var sd := str(pair[0])
+		var bt := _mk_button(str(pair[1]))
+		bt.custom_minimum_size = Vector2(132, 40)
+		bt.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
+		if sd == side:
+			bt.add_theme_color_override("font_color", Color("#F2BDB2"))
+		else:
+			bt.modulate = Color(1, 1, 1, 0.55)
+		bt.pressed.connect(func(): _show_card_detail(key, sd))
+		tabs.add_child(bt)
+
+	# 卡面
+	var frame := CenterContainer.new()
+	col.add_child(frame)
+	var art := AssetLoader.card_art(key, side)
+	if art != null:
+		var tr := TextureRect.new()
+		tr.texture = art
+		tr.custom_minimum_size = Vector2(400, 298)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_child(tr)
+	else:
+		var g := Label.new()
+		g.text = str(def["glyph"])
+		g.add_theme_font_size_override("font_size", 96)
+		g.add_theme_color_override("font_color", Color(0.72, 0.35, 0.36, 0.8))
+		frame.add_child(g)
+
+	var desc := Label.new()
+	desc.text = CardText.build(key, side)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.custom_minimum_size = Vector2(500, 0)
+	desc.add_theme_font_size_override("font_size", int((16 + FONT_ADD) * UI_S))
+	desc.add_theme_color_override("font_color", C_MOON)
+	desc.add_theme_constant_override("line_spacing", 8)
+	col.add_child(desc)
+
+	var row := CenterContainer.new()
+	col.add_child(row)
+	var back := _mk_button(I18N.t("ui.back"))
+	back.custom_minimum_size = Vector2(160, 44)
+	back.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
+	back.pressed.connect(_close_card_detail)
+	row.add_child(back)
+
+
+func _close_card_detail() -> void:
+	if _card_detail != null and is_instance_valid(_card_detail):
+		_card_detail.visible = false
+		_card_detail.queue_free()
+	_card_detail = null
+
+
 func _show_codex() -> void:
 	_view_origin = _panel_mode
 	_clear_panel()
@@ -2583,13 +2770,14 @@ func _show_codex() -> void:
 	panel_vb.add_child(_panel_title(I18N.t("ui.codex")))
 	panel_vb.add_child(_panel_sub(I18N.t("ui.codex_sub", [CardDB.CARDS.size()])))
 
-	var scroll := ScrollContainer.new()
+	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(620, 384)
 	panel_vb.add_child(scroll)
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(grid)
 
 	var keys: Array = CardDB.CARDS.keys()
@@ -2604,6 +2792,9 @@ func _show_codex() -> void:
 		var cv := CardView.new()
 		grid.add_child(cv)
 		cv.setup(str(k), "xian", -1)
+		cv.mouse_filter = Control.MOUSE_FILTER_PASS
+		var ck := str(k)
+		cv.clicked.connect(func(_idx: int): _show_card_detail(ck, "xian"))
 
 	var row := CenterContainer.new()
 	panel_vb.add_child(row)
@@ -2621,7 +2812,7 @@ func _show_relics() -> void:
 	panel_vb.add_child(_panel_title(I18N.t("ui.relics")))
 	panel_vb.add_child(_panel_sub("%d / 8" % Run.relic_count()))
 
-	var scroll := ScrollContainer.new()
+	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(620, 380)
 	panel_vb.add_child(scroll)
 	var vb := VBoxContainer.new()
@@ -2636,6 +2827,8 @@ func _show_relics() -> void:
 			RelicDB.name(str(id)), _rarity_name(RelicDB.rarity_of(str(id))), RelicDB.desc(str(id))
 		], RelicDB.rarity_of(str(id)))
 		b.disabled = true
+		# 这些只是展示用的，别让它们挡住手指拖动列表
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
 		vb.add_child(b)
 
 	var row := CenterContainer.new()
@@ -2862,7 +3055,7 @@ func _wide_button(text: String, rarity: String) -> Button:
 	b.add_theme_stylebox_override("hover", h)
 	b.add_theme_stylebox_override("pressed", h)
 	b.add_theme_stylebox_override("disabled", sb)
-	b.pressed.connect(func(): Audio.play_sfx("click", 0.02))
+	b.pressed.connect(func(): _click_sfx(b))
 	return b
 
 

@@ -40,6 +40,11 @@ var _side_label: Label
 var _glyph_label: Label
 var _art_rect: TextureRect
 
+## 按下后位移超过这个值就当成「在滚动」而不是「点这张卡」
+const TAP_SLOP := 12.0
+var _press_pos := Vector2.ZERO
+var _press_valid := false
+
 
 func setup(key: String, p_side: String, idx: int = -1, p_cost: int = -1) -> void:
 	card_key = key
@@ -258,14 +263,24 @@ func set_selected(v: bool) -> void:
 	tw.tween_property(self, "scale", Vector2(1.1, 1.1) if v else Vector2.ONE, 0.12)
 
 
+## 点按判定放在「抬起」而不是「按下」：
+## 图鉴 / 牌组里手指拖着列表滑时，起手必然压在某张卡上，
+## 若按下就触发，滚动会顺带点开一张卡。
 func _on_gui_input(event: InputEvent) -> void:
 	if view_disabled:
 		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			play_play_fx()
-			clicked.emit(hand_index)
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mb.pressed:
+			_press_valid = true
+			_press_pos = mb.position
+		elif _press_valid:
+			_press_valid = false
+			if (mb.position - _press_pos).length() <= TAP_SLOP:
+				play_play_fx()
+				clicked.emit(hand_index)
 
 
 func _on_mouse_entered() -> void:
