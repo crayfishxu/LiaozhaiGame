@@ -80,6 +80,8 @@ var _victory_heal: int = 0
 var _relic_pending: String = ""
 var _remove_cb: Callable = Callable()
 var _view_origin: String = ""
+## 暂停菜单关闭后要回到的那一屏。只有从「非暂停家族」的界面进暂停才会改它，
+## 否则 暂停 → 图鉴 → 返回 会把来源记成 codex，回头路就断了
 var _prev_mode: String = ""
 
 var draw_pile: Array = []
@@ -124,11 +126,11 @@ var target_hint: Label
 var grievance_label: Label
 var relic_btn: Button
 var _pause_open: bool = false
+## 失败音只放一次（结算页会被重新渲染）
+var _defeat_sfx_done: bool = false
 ## 当前弹窗种类：intro / reward / pause / settings / lang / win / lose / ""
 ## 切换语言要重建整个 UI，靠这个把玩家送回到原来的那一屏
 var _panel_mode: String = ""
-## 设置面板是从哪进的：pause / intro / ""（"" 表示从某个界面用返回键进）
-var _settings_from: String = ""
 ## 设置面板里的行控件：kind -> {vol, sw, name}，改音量后就地更新不重建面板
 var _audio_rows: Dictionary = {}
 ## 战后三选一的候选项要留住，否则切语言重开面板会重新摇一次
@@ -496,6 +498,7 @@ func start_game() -> void:
 	_sync_from_run()
 	game_active = false
 	busy = false
+	_defeat_sfx_done = false
 	_hide_overlay()
 	_clear_field()
 	_show_intro()
@@ -1563,13 +1566,6 @@ func _show_intro() -> void:
 	b.pressed.connect(_enter_run)
 	brow.add_child(b)
 
-	# 开场就能先关音乐——手机上很多人在公共场合开第一把
-	var bset := _mk_button(I18N.t("ui.settings"))
-	bset.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
-	bset.custom_minimum_size = Vector2(140, 46)
-	bset.pressed.connect(func(): _show_settings("intro"))
-	brow.add_child(bset)
-
 
 func _show_victory(kind: String, gold: int, heal: int) -> void:
 	_clear_panel()
@@ -1697,7 +1693,9 @@ func _show_relic_replace(new_id: String) -> void:
 
 
 func _game_over(win: bool) -> void:
-	if not win:
+	if not win and not _defeat_sfx_done:
+		# 结算页会被「返回」和切语言重新渲染，失败音只放第一次
+		_defeat_sfx_done = true
 		Audio.play_sfx("defeat")
 	game_active = false
 	busy = false
@@ -1766,8 +1764,19 @@ func _game_over(win: bool) -> void:
 # ==================================================================
 # 暂停菜单 / 退出
 # ==================================================================
+## 当前这一屏是不是「暂停菜单，或从暂停菜单点进去的子页」
+func _pause_related() -> bool:
+	match _panel_mode:
+		"pause", "lang", "settings":
+			return true
+		"deck", "deck_remove", "codex", "relics":
+			# 同一屏也能从地图点进去，只有来源是暂停时才算子页
+			return _view_origin == "pause"
+	return false
+
+
 func _show_pause() -> void:
-	if _panel_mode != "pause" and _panel_mode != "lang" and _panel_mode != "settings":
+	if not _pause_related():
 		_prev_mode = _panel_mode
 	_clear_panel()
 	_show_overlay()
@@ -1777,15 +1786,15 @@ func _show_pause() -> void:
 	panel_vb.add_child(_panel_title(I18N.t("ui.pause_title")))
 	panel_vb.add_child(_panel_sub(I18N.t("ui.pause_sub")))
 
-	# 结算之后没有"继续"可言，只留重开与退出
+	# 战斗中给「继续」；不在战斗里（开场 / 地图 / 结算）给「返回」。
+	# 少了「返回」，从这些界面进菜单后就只剩「重新开始」和「退出」两条路。
 	if game_active:
 		var r1 := CenterContainer.new()
 		panel_vb.add_child(r1)
 		var b1 := _mk_button(I18N.t("ui.resume"))
 		b1.pressed.connect(func(): _hide_overlay())
 		r1.add_child(b1)
-	elif _prev_mode == "intro":
-		# 开场按返回键会进到这个菜单；不给条回头路的话，玩家只剩「重新开始」和「退出」
+	elif _prev_mode != "":
 		var ri := CenterContainer.new()
 		panel_vb.add_child(ri)
 		var bi := _mk_button(I18N.t("ui.back"))
@@ -1820,7 +1829,7 @@ func _show_pause() -> void:
 	var rs := CenterContainer.new()
 	panel_vb.add_child(rs)
 	var bs := _mk_button(I18N.t("ui.settings"))
-	bs.pressed.connect(func(): _show_settings("pause"))
+	bs.pressed.connect(func(): _show_settings())
 	rs.add_child(bs)
 
 	var rl := CenterContainer.new()
@@ -1848,10 +1857,9 @@ func _show_pause() -> void:
 # 设置（音乐 / 音效开关）
 # ==================================================================
 ## from 记录从哪进来：pause / intro。返回时按这个回到原处。
-func _show_settings(from: String = "pause") -> void:
-	if _panel_mode != "settings" and _panel_mode != "pause" and _panel_mode != "lang":
-		_prev_mode = _panel_mode
-	_settings_from = from
+## 设置只从暂停菜单进，返回也只会回到暂停菜单，
+## 所以这里不碰 _prev_mode —— 碰了会把「暂停要回到哪一屏」冲掉
+func _show_settings() -> void:
 	_audio_rows.clear()
 
 	_clear_panel()
@@ -1942,14 +1950,7 @@ func _sync_audio_row(kind: String) -> void:
 
 
 func _settings_back() -> void:
-	match _settings_from:
-		"intro":
-			_show_intro()
-		"pause":
-			_show_pause()
-		_:
-			_prev_mode = ""
-			_resume()
+	_show_pause()
 
 
 func _quit_to_desktop() -> void:
@@ -2109,7 +2110,7 @@ func _rebuild_ui() -> void:
 		"victory": _show_victory(_victory_kind, _victory_gold, _victory_heal)
 		"relic_choice": _show_relic_choice("elite")
 		"pause": _show_pause()
-		"settings": _show_settings(_settings_from)
+		"settings": _show_settings()
 		"lang": _show_language()
 		"shop": _show_shop(node)
 		"rest": _show_rest(node)
@@ -2509,7 +2510,10 @@ func _apply_effect(fx: Dictionary) -> Array:
 # 牌组 / 图鉴 / 旧物
 # ==================================================================
 func _show_deck(remove_mode: bool = false, cb: Callable = Callable()) -> void:
-	_view_origin = _panel_mode
+	# 删牌成功后会再进来一次刷新列表，这时不能把来源改成 deck_remove，
+	# 否则返回键会掉到地图去
+	if _panel_mode != "deck" and _panel_mode != "deck_remove":
+		_view_origin = _panel_mode
 	_clear_panel()
 	_show_overlay()
 	_panel_mode = "deck"
