@@ -130,6 +130,11 @@ var _pause_open: bool = false
 var _defeat_sfx_done: bool = false
 ## 图鉴 / 牌组里点开的那张卡（浮在弹窗之上的一层）
 var _card_detail: Control = null
+## 存档面板：删除需要按两次；_save_note 是面板底部那行结果提示
+var _save_confirm: bool = false
+var _save_note: String = ""
+## 存档面板是从开场页进的还是从暂停菜单进的（决定「返回」回哪）
+var _save_from_intro: bool = false
 ## 当前弹窗种类：intro / reward / pause / settings / lang / win / lose / ""
 ## 切换语言要重建整个 UI，靠这个把玩家送回到原来的那一屏
 var _panel_mode: String = ""
@@ -153,6 +158,13 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_on_back_requested()
+		return
+	# 切后台 / 被系统回收前补一次存盘。战斗中的 Run 已经被 enter() 改过，
+	# 这时写盘会存成「这场已经打过」，所以战斗中不写 —— 磁盘上留着
+	# 进节点前的检查点，回来重打这一场即可。
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if Run.active and not game_active and _panel_mode != "intro" and str(Run.outcome) == "":
+			Save.mark()
 
 
 ## 返回键语义：卡牌详情 → 关详情；设置 → 退一层；暂停 → 继续；否则呼出暂停
@@ -162,6 +174,13 @@ func _on_back_requested() -> void:
 		return
 	if _panel_mode == "settings":
 		_settings_back()
+		return
+	if _panel_mode == "save":
+		_save_confirm = false
+		if _save_from_intro:
+			_show_intro()
+		else:
+			_show_pause()
 		return
 	if overlay.visible and _pause_open:
 		_resume()
@@ -1575,18 +1594,53 @@ func _show_intro() -> void:
 	var tip := Label.new()
 	tip.text = I18N.t("ui.intro")
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# 给一个明确的宽度：某些语种这一段很长，没有它会把整栏顶出屏幕
+	tip.custom_minimum_size = Vector2(430, 0)
 	tip.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
 	tip.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 0.62))
 	tip.add_theme_constant_override("line_spacing", 8)
 	col.add_child(tip)
 
+	# 有存档就先摆「继续」，回来的人第一眼要的是接着打
+	var save_meta := Save.meta()
+	if not save_meta.is_empty():
+		col.add_child(_panel_sub(I18N.t("ui.save_meta", [
+			int(save_meta["layer"]), int(save_meta["hp"]),
+			int(save_meta["max_hp"]), int(save_meta["deck"])])))
+
 	var brow := HBoxContainer.new()
 	brow.alignment = BoxContainer.ALIGNMENT_CENTER
 	brow.add_theme_constant_override("separation", 12)
 	col.add_child(brow)
+
+	if not save_meta.is_empty():
+		var bcur := _mk_button(I18N.t("ui.continue_run"))
+		bcur.pressed.connect(_continue_run)
+		brow.add_child(bcur)
+
 	var b := _mk_button(I18N.t("ui.enter"))
 	b.pressed.connect(_enter_run)
 	brow.add_child(b)
+
+	# 换机导入存档：没开过局也能进这个面板
+	var rsave := CenterContainer.new()
+	col.add_child(rsave)
+	var bsv := _mk_button(I18N.t("ui.save"))
+	bsv.add_theme_font_size_override("font_size", int((12 + FONT_ADD) * UI_S))
+	bsv.custom_minimum_size = Vector2(150, 36)
+	bsv.pressed.connect(func(): _show_save(true))
+	rsave.add_child(bsv)
+
+
+## 从存档接着打
+func _continue_run() -> void:
+	if not Save.load_into_run():
+		_toast(I18N.t("ui.save_bad"), C_ROUGE)
+		return
+	_sync_from_run()
+	_hide_overlay()
+	_show_map()
 
 
 func _show_victory(kind: String, gold: int, heal: int) -> void:
@@ -1724,6 +1778,8 @@ func _game_over(win: bool) -> void:
 	Run.outcome = "win" if win else "lose"
 	Run.hp = max(0, player_hp)
 	Run.diagnosis = Run.evaluate_diagnosis()
+	# 一局结束，存档作废，开场页不再显示「继续」
+	Save.erase()
 
 	_clear_panel()
 	_show_overlay()
@@ -1789,7 +1845,7 @@ func _game_over(win: bool) -> void:
 ## 当前这一屏是不是「暂停菜单，或从暂停菜单点进去的子页」
 func _pause_related() -> bool:
 	match _panel_mode:
-		"pause", "lang", "settings":
+		"pause", "lang", "settings", "save":
 			return true
 		"deck", "deck_remove", "codex", "relics":
 			# 同一屏也能从地图点进去，只有来源是暂停时才算子页
@@ -1837,6 +1893,11 @@ func _show_pause() -> void:
 	bc.custom_minimum_size = Vector2(150, 42)
 	bc.pressed.connect(_show_codex)
 	rd.add_child(bc)
+	var bsv := _mk_button(I18N.t("ui.save"))
+	bsv.add_theme_font_size_override("font_size", int((13 + FONT_ADD) * UI_S))
+	bsv.custom_minimum_size = Vector2(150, 42)
+	bsv.pressed.connect(_show_save)
+	rd.add_child(bsv)
 
 	var r2 := CenterContainer.new()
 	panel_vb.add_child(r2)
@@ -1973,6 +2034,113 @@ func _sync_audio_row(kind: String) -> void:
 
 func _settings_back() -> void:
 	_show_pause()
+
+
+# ==================================================================
+# 存档面板：本机自动存 + 口令导入导出
+# ==================================================================
+func _show_save(from_intro: bool = false) -> void:
+	if _panel_mode != "save":
+		_save_confirm = false
+		_save_note = ""
+		_save_from_intro = from_intro
+	_clear_panel()
+	_show_overlay()
+	_panel_mode = "save"
+
+	panel_vb.add_child(_panel_title(I18N.t("ui.save")))
+	panel_vb.add_child(_panel_sub(I18N.t("ui.save_sub")))
+
+	var meta := Save.meta()
+	if meta.is_empty():
+		panel_vb.add_child(_panel_sub(I18N.t("ui.save_none")))
+	else:
+		panel_vb.add_child(_panel_sub(I18N.t("ui.save_meta", [
+			int(meta["layer"]), int(meta["hp"]),
+			int(meta["max_hp"]), int(meta["deck"])])))
+
+	# 战斗中的 Run 已被 enter() 改过，这时导出会存成「这场已经打过」
+	var in_battle := game_active
+	# 开场页那份 Run 还没开始，导出去没有意义
+	var can_export := not in_battle and not _save_from_intro and Run.active \
+		and str(Run.outcome) == ""
+
+	var r1 := CenterContainer.new()
+	panel_vb.add_child(r1)
+	var be := _mk_button(I18N.t("ui.save_export"))
+	be.disabled = not can_export
+	be.pressed.connect(_do_save_export)
+	r1.add_child(be)
+
+	var r2 := CenterContainer.new()
+	panel_vb.add_child(r2)
+	var bi := _mk_button(I18N.t("ui.save_import"))
+	bi.disabled = in_battle
+	bi.pressed.connect(_do_save_import)
+	r2.add_child(bi)
+
+	var r3 := CenterContainer.new()
+	panel_vb.add_child(r3)
+	var bd := _mk_button(I18N.t("ui.save_confirm") if _save_confirm else I18N.t("ui.save_delete"))
+	bd.disabled = in_battle or meta.is_empty()
+	bd.pressed.connect(_do_save_delete)
+	r3.add_child(bd)
+
+	var note := I18N.t("ui.save_in_battle") if in_battle else _save_note
+	if note != "":
+		# 导出路径很长，用小一号字，免得撑成三四行
+		var nlb := _panel_sub(note)
+		nlb.add_theme_font_size_override("font_size", int((11 + FONT_ADD) * UI_S))
+		panel_vb.add_child(nlb)
+
+	var r4 := CenterContainer.new()
+	panel_vb.add_child(r4)
+	var bb := _mk_button(I18N.t("ui.back"))
+	bb.pressed.connect(func():
+		_save_confirm = false
+		if _save_from_intro:
+			_show_intro()
+		else:
+			_show_pause()
+	)
+	r4.add_child(bb)
+
+
+## 导出：写一份 json 到 user://exports，同时把口令塞进剪贴板
+func _do_save_export() -> void:
+	var code := Save.export_code()
+	if code != "":
+		DisplayServer.clipboard_set(code)
+	var path := Save.export_file()
+	_save_note = I18N.t("ui.save_exported", [path]) if path != "" else I18N.t("ui.save_bad")
+	_show_save()
+
+
+## 导入：直接吃剪贴板里的口令（也接受整段 JSON）
+func _do_save_import() -> void:
+	if not Save.import_code(DisplayServer.clipboard_get()):
+		_save_note = I18N.t("ui.save_bad")
+		_show_save()
+		return
+	_save_confirm = false
+	_save_note = ""
+	_sync_from_run()
+	_hide_overlay()
+	_show_map()
+	_toast(I18N.t("ui.save_imported"), C_GOLD)
+
+
+## 删档 = 放弃本局，二次确认后再动
+func _do_save_delete() -> void:
+	if not _save_confirm:
+		_save_confirm = true
+		_show_save()
+		return
+	_save_confirm = false
+	_save_note = ""
+	Save.erase()
+	_hide_overlay()
+	start_game()
 
 
 func _quit_to_desktop() -> void:
@@ -2194,9 +2362,13 @@ func _show_map() -> void:
 	mv.open_codex.connect(_show_codex)
 	overlay.add_child(mv)
 	_map_view = mv
+	# 站到地图上 = 一个干净的存档点
+	Save.mark()
 
 
 func _on_node_chosen(id: String) -> void:
+	# 进节点前存一次：万一战斗中被打断，回来就当这场没打过
+	Save.mark()
 	var n := Run.enter(id)
 	if n.is_empty():
 		return

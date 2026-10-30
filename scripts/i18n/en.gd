@@ -465,4 +465,20 @@ const TEXT := {
 	"ev.well.h1": "Heal 10 soulfire",
 	"ev.well.h2": "Lose 8 soulfire, gain a relic",
 	"ev.well.h3": "Lose 10 gold, +3 max soulfire",
+
+	# ---- 存档 ----
+	"ui.continue_run": "Continue",
+	"ui.save": "Save",
+	"ui.save_sub": "Auto-saved. You can also export it as a code.",
+	"ui.save_none": "No save yet",
+	"ui.save_meta": "Act %d · Soulfire %d/%d · %d cards",
+	"ui.save_export": "Export (copy code + file)",
+	"ui.save_import": "Import from clipboard",
+	"ui.save_delete": "Abandon run and delete",
+	"ui.save_confirm": "Tap again to confirm",
+	"ui.save_exported": "Exported to: %s",
+	"ui.save_imported": "Save imported",
+	"ui.save_deleted": "Save deleted",
+	"ui.save_bad": "Invalid or corrupted save",
+	"ui.save_in_battle": "Can't import or export mid-battle",
 }

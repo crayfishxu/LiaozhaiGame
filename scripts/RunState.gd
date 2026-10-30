@@ -211,6 +211,77 @@ func spend(n: int) -> bool:
 
 
 # ------------------------------------------------------------------
+# 存档：只导出 JSON 原生类型，不含随机数状态与本局的临时物件
+# ------------------------------------------------------------------
+## 会被写进存档的字段。往 Run 里加新字段时记得同步这里，
+## 否则读档后那个字段会悄悄回到默认值。
+const SAVE_FIELDS := [
+	"seed", "deck", "relics", "gold", "insight", "hp", "max_hp",
+	"layer", "map", "node_id", "done_nodes", "deck_limit", "free_play_next",
+	"rounds", "played", "skipped", "self_damage", "block_total",
+	"discards", "max_hit", "grudge_peak", "battles", "elites", "bosses",
+	"outcome", "diagnosis",
+]
+
+
+## 当前局面的快照（纯数据，可直接 JSON 序列化）
+func snapshot() -> Dictionary:
+	var out: Dictionary = {}
+	for f in SAVE_FIELDS:
+		out[f] = get(f)
+	# 深拷贝，避免存档对象和运行时对象共享引用
+	return out.duplicate(true)
+
+
+## 从快照恢复。缺字段取默认值，坏字段跳过 —— 读档宁可少一点也不要整个失败
+func restore(d: Dictionary) -> bool:
+	if d.is_empty():
+		return false
+	for f in SAVE_FIELDS:
+		if not d.has(f):
+			continue
+		var v: Variant = d[f]
+		# 数组/字典要深拷贝，否则存档对象和运行时对象会共享同一份引用
+		if v is Array:
+			set(f, (v as Array).duplicate(true))
+		elif v is Dictionary:
+			set(f, (v as Dictionary).duplicate(true))
+		else:
+			set(f, v)
+
+	# JSON 里的数字一律是 float，整型字段在这里收一次
+	hp = int(hp)
+	max_hp = maxi(1, int(max_hp))
+	gold = maxi(0, int(gold))
+	insight = int(insight)
+	layer = clampi(int(layer), 0, EnemyDB.LAYERS.size() - 1)
+	deck_limit = maxi(1, int(deck_limit))
+	seed = int(seed)
+	rounds = int(rounds)
+	played = int(played)
+	skipped = int(skipped)
+	self_damage = int(self_damage)
+	block_total = int(block_total)
+	discards = int(discards)
+	max_hit = int(max_hit)
+	grudge_peak = int(grudge_peak)
+	battles = int(battles)
+	elites = int(elites)
+	bosses = int(bosses)
+	hp = clampi(hp, 1, max_hp)
+	outcome = str(outcome)
+	diagnosis = str(diagnosis)
+	node_id = str(node_id)
+	if not (map is Dictionary) or not (map.get("rows") is Array):
+		return false
+
+	active = true
+	# 随机数不复原：读档后不要求和原来逐帧一致，randomize 更省心
+	rng.randomize()
+	return true
+
+
+# ------------------------------------------------------------------
 # 确诊
 # ------------------------------------------------------------------
 func evaluate_diagnosis() -> String:

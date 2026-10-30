@@ -479,4 +479,20 @@ const TEXT := {
 	"ev.well.h1": "回复 10 点魂火",
 	"ev.well.h2": "失去 8 点魂火，获得一件旧物",
 	"ev.well.h3": "失去 10 金，魂火上限 +3",
+
+	# ---- 存档 ----
+	"ui.continue_run": "继 续",
+	"ui.save": "存 档",
+	"ui.save_sub": "自动保存中，也可以导出成口令带走",
+	"ui.save_none": "还没有存档",
+	"ui.save_meta": "第 %d 层 · 魂火 %d/%d · %d 张牌",
+	"ui.save_export": "导出（复制口令 + 存文件）",
+	"ui.save_import": "从剪贴板导入",
+	"ui.save_delete": "放弃本局并删档",
+	"ui.save_confirm": "再按一次确认删除",
+	"ui.save_exported": "已导出到：%s",
+	"ui.save_imported": "已导入存档",
+	"ui.save_deleted": "存档已删除",
+	"ui.save_bad": "存档无效或已损坏",
+	"ui.save_in_battle": "战斗中不能导入导出，先打完这一场",
 }
